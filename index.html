@@ -23,40 +23,53 @@
 
         <!-- Main Review Interface -->
         <div id="review-screen" class="screen">
-            <div class="header">
-                <div class="progress-bar">
-                    <div id="progress-fill" class="progress-fill"></div>
+            <!-- Review History Sidebar -->
+            <div id="review-sidebar" class="review-sidebar">
+                <div class="sidebar-header">
+                    <h3>History</h3>
+                    <div class="sidebar-progress">
+                        <span id="sidebar-current">0</span>/<span id="sidebar-total">0</span>
+                    </div>
                 </div>
-                <div class="counter">
-                    <span id="current-image">1</span> / <span id="total-images">0</span>
-                </div>
-            </div>
-
-            <div class="card-container">
-                <div id="card-stack" class="card-stack">
-                    <!-- Cards will be dynamically generated here -->
+                <div id="history-list" class="history-list">
+                    <!-- History items will be added here -->
                 </div>
             </div>
 
-            <div class="controls">
-                <button id="disapprove-btn" class="control-btn disapprove">
-                    <span class="icon">✕</span>
-                    <span class="label">Disapprove</span>
-                </button>
-                <button id="undo-btn" class="control-btn undo">
-                    <span class="icon">↶</span>
-                    <span class="label">Undo</span>
-                </button>
-                <button id="approve-btn" class="control-btn approve">
-                    <span class="icon">✓</span>
-                    <span class="label">Approve</span>
-                </button>
-            </div>
+            <!-- Main Content Area -->
+            <div class="main-content">
+                <div class="header">
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="counter">
+                        <span id="current-image">1</span> / <span id="total-images">0</span>
+                    </div>
+                </div>
 
-            <div class="keyboard-hints">
-                <span>← Disapprove</span>
-                <span>→ Approve</span>
-                <span>Backspace Undo</span>
+                <div class="card-container">
+                    <div id="card-stack" class="card-stack">
+                        <!-- Cards will be dynamically generated here -->
+                    </div>
+                </div>
+
+                <div class="tinder-controls">
+                    <button id="disapprove-btn" class="tinder-btn disapprove">
+                        <span class="icon">✕</span>
+                    </button>
+                    <button id="undo-btn" class="tinder-btn undo">
+                        <span class="icon">↶</span>
+                    </button>
+                    <button id="approve-btn" class="tinder-btn approve">
+                        <span class="icon">✓</span>
+                    </button>
+                </div>
+
+                <div class="keyboard-hints">
+                    <span>← Disapprove</span>
+                    <span>→ Approve</span>
+                    <span>Backspace Undo</span>
+                </div>
             </div>
         </div>
 
