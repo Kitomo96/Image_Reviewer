@@ -3,75 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Evaluation Platform</title>
+    <title>Image Reviewer</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Initial Screen -->
-        <div id="initial-screen" class="screen active">
-            <div class="initial-content">
-                <h1>Image Evaluation Platform</h1>
-                <p>Extract and review images from Google Drive folder</p>
-                <div id="folder-input-section" class="folder-input">
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="screen active">
+            <div class="loading-content">
+                <h1>Image Reviewer</h1>
+                <div class="input-group">
                     <label for="folder-id-input">Google Drive Folder ID:</label>
-                    <input type="text" id="folder-id-input" placeholder="Enter folder ID (e.g., 1oRCubBhnzp_IfCPQDHyjBK33qJS6dHJ9)" />
+                    <input type="text" id="folder-id-input" placeholder="Enter folder ID..." class="folder-input">
+                    <small class="input-hint">You can find the folder ID in the Google Drive URL after /folders/</small>
                 </div>
                 <button id="get-images-btn" class="primary-btn">Get Images</button>
-                <div id="loading" class="loading hidden">
-                    <div class="spinner"></div>
-                    <p>Fetching images...</p>
-                </div>
-                <div id="error-message" class="error-message hidden"></div>
             </div>
         </div>
 
-        <!-- Review Screen -->
+        <!-- Main Review Interface -->
         <div id="review-screen" class="screen">
-            <div class="review-header">
-                <div class="progress-info">
-                    <span id="current-image">1</span> of <span id="total-images">0</span>
+            <div class="header">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
                 </div>
-                <button id="undo-btn" class="secondary-btn" disabled>↶ Undo</button>
+                <div class="counter">
+                    <span id="current-image">1</span> / <span id="total-images">0</span>
+                </div>
             </div>
 
-            <div class="card-container" id="card-container">
-                <!-- Image cards will be dynamically inserted here -->
+            <div class="card-container">
+                <div id="card-stack" class="card-stack">
+                    <!-- Cards will be dynamically generated here -->
+                </div>
             </div>
 
-            <div class="action-buttons">
-                <button id="disapprove-btn" class="action-btn disapprove-btn">
-                    ❌ Disapprove
+            <div class="controls">
+                <button id="disapprove-btn" class="control-btn disapprove">
+                    <span class="icon">✕</span>
+                    <span class="label">Disapprove</span>
                 </button>
-                <button id="approve-btn" class="action-btn approve-btn">
-                    ✔️ Approve
+                <button id="undo-btn" class="control-btn undo">
+                    <span class="icon">↶</span>
+                    <span class="label">Undo</span>
+                </button>
+                <button id="approve-btn" class="control-btn approve">
+                    <span class="icon">✓</span>
+                    <span class="label">Approve</span>
                 </button>
             </div>
 
             <div class="keyboard-hints">
-                <p>← Left Arrow: Disapprove | Right Arrow: Approve → | Backspace: Undo</p>
+                <span>← Disapprove</span>
+                <span>→ Approve</span>
+                <span>Backspace Undo</span>
             </div>
         </div>
 
-        <!-- Completion Screen -->
-        <div id="completion-screen" class="screen">
-            <div class="completion-content">
-                <h2>🎉 Review Complete!</h2>
-                <p>You've reviewed all images.</p>
-                <div class="completion-stats">
+        <!-- Final Submission Screen -->
+        <div id="submission-screen" class="screen">
+            <div class="submission-content">
+                <h2>Review Complete!</h2>
+                <div class="summary">
                     <div class="stat">
-                        <span class="stat-number" id="approved-count">0</span>
-                        <span class="stat-label">Approved</span>
+                        <span class="number" id="approved-count">0</span>
+                        <span class="label">Approved</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-number" id="disapproved-count">0</span>
-                        <span class="stat-label">Disapproved</span>
+                        <span class="number" id="disapproved-count">0</span>
+                        <span class="label">Disapproved</span>
                     </div>
                 </div>
-                <div class="completion-buttons">
-                    <button id="go-back-btn" class="secondary-btn">Go Back</button>
-                    <button id="submit-review-btn" class="primary-btn">Submit Review</button>
-                </div>
+                <button id="submit-review-btn" class="primary-btn">Submit Review</button>
+                <button id="review-again-btn" class="secondary-btn">Review Again</button>
+            </div>
+        </div>
+
+        <!-- Error Screen -->
+        <div id="error-screen" class="screen">
+            <div class="error-content">
+                <h2>Error</h2>
+                <p id="error-message">Something went wrong. Please try again.</p>
+                <button id="retry-btn" class="primary-btn">Retry</button>
             </div>
         </div>
     </div>

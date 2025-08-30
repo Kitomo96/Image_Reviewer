@@ -1,352 +1,149 @@
-class ImageEvaluator {
+class ImageReviewer {
     constructor() {
-        // State management
         this.images = [];
         this.currentIndex = 0;
         this.reviewHistory = [];
-        this.resumeUrl = '';
-        this.preloadedCards = new Map(); // Track preloaded cards
-        
-        // DOM elements
-        this.initialScreen = document.getElementById('initial-screen');
-        this.reviewScreen = document.getElementById('review-screen');
-        this.completionScreen = document.getElementById('completion-screen');
-        this.getImagesBtn = document.getElementById('get-images-btn');
-        this.folderInput = document.getElementById('folder-id-input');
-        this.folderInputSection = document.getElementById('folder-input-section');
-        this.loadingEl = document.getElementById('loading');
-        this.errorMessageEl = document.getElementById('error-message');
-        this.cardContainer = document.getElementById('card-container');
-        this.currentImageEl = document.getElementById('current-image');
-        this.totalImagesEl = document.getElementById('total-images');
-        this.undoBtn = document.getElementById('undo-btn');
-        this.approveBtn = document.getElementById('approve-btn');
-        this.disapproveBtn = document.getElementById('disapprove-btn');
-        this.approvedCountEl = document.getElementById('approved-count');
-        this.disapprovedCountEl = document.getElementById('disapproved-count');
-        this.goBackBtn = document.getElementById('go-back-btn');
-        this.submitReviewBtn = document.getElementById('submit-review-btn');
-        
-        // Drag state
+        this.resumeUrl = null;
         this.isDragging = false;
         this.startX = 0;
+        this.startY = 0;
         this.currentX = 0;
-        this.dragThreshold = 100;
+        this.currentY = 0;
         
         this.init();
     }
-    
+
     init() {
-        this.setupEventListeners();
-        this.extractFolderIdFromUrl();
+        this.bindEvents();
+        this.showScreen('loading-screen');
     }
-    
-    setupEventListeners() {
-        // Initial screen
-        this.getImagesBtn.addEventListener('click', () => this.fetchImages());
-        
-        // Review screen
-        this.approveBtn.addEventListener('click', () => this.approveImage());
-        this.disapproveBtn.addEventListener('click', () => this.disapproveImage());
-        this.undoBtn.addEventListener('click', () => this.undoLastAction());
-        
-        // Completion screen
-        this.goBackBtn.addEventListener('click', () => this.goBackToLastImage());
-        this.submitReviewBtn.addEventListener('click', () => this.submitReview());
-        
-        // Keyboard controls
-        document.addEventListener('keydown', (e) => this.handleKeyboardInput(e));
-        
-        // Mouse/touch events for swiping will be added dynamically to cards
-    }
-    
-    extractFolderIdFromUrl() {
-        // Extract folder ID from URL path (e.g., http://domain/{folder_id})
-        const path = window.location.pathname;
-        this.folderId = path.substring(1); // Remove leading slash
-        
-        // Check if we're running as a file:// URL (local development)
-        const isFileProtocol = window.location.protocol === 'file:';
-        
-        if (!this.folderId || isFileProtocol) {
-            // Show input field for manual folder ID entry
-            this.folderInputSection.classList.remove('hidden');
-            this.getImagesBtn.disabled = false;
-            
-            // If we have a folder ID from URL, pre-fill the input
-            if (this.folderId && !isFileProtocol) {
-                this.folderInput.value = this.folderId;
-            }
-            
-            // Update button to use input value
-            this.getImagesBtn.addEventListener('click', () => {
-                const inputId = this.folderInput.value.trim();
-                if (inputId) {
-                    this.folderId = inputId;
-                    this.fetchImages();
-                } else {
-                    this.showError('Please enter a Google Drive folder ID');
-                }
-            });
-            
-            // Allow Enter key to trigger fetch
-            this.folderInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    const inputId = this.folderInput.value.trim();
-                    if (inputId) {
-                        this.folderId = inputId;
-                        this.fetchImages();
-                    }
-                }
-            });
-            
-        } else {
-            // Use URL-based folder ID
-            this.folderInputSection.classList.add('hidden');
-            this.getImagesBtn.disabled = false;
-        }
-    }
-    
-    async fetchImages() {
-        if (!this.folderId) {
-            this.showError('No folder ID available');
-            return;
-        }
-        
-        this.showLoading(true);
-        this.hideError();
-        
-        try {
-            const response = await fetch('https://n8n.jacopogomarasca.it/webhook-test/7c46aa4d-1163-49f2-85f3-0e4c3dcc74f0', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    folderId: this.folderId
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (!data.assets || !Array.isArray(data.assets)) {
-                throw new Error('Invalid response format: missing assets array');
-            }
-            
-            // Initialize image objects with status
-            this.images = data.assets.map(asset => ({
-                ...asset,
-                status: 'undecided'
-            }));
-            
-            this.resumeUrl = data.resumeUrl || '';
-            this.currentIndex = 0;
-            this.reviewHistory = [];
-            
-            if (this.images.length === 0) {
-                throw new Error('No images found in the specified folder');
-            }
-            
-            this.showLoading(false);
-            this.startReview();
-            
-        } catch (error) {
-            this.showLoading(false);
-            this.showError(`Failed to fetch images: ${error.message}`);
-            console.error('Fetch error:', error);
-        }
-    }
-    
-    startReview() {
-        this.switchToScreen('review');
-        this.renderImages();
-        this.preloadNextImages();
-        this.updateProgress();
-        this.updateUndoButton();
-    }
-    
-    renderImages() {
-        this.cardContainer.innerHTML = '';
-        
-        this.cardContainer.innerHTML = '';
-        
-        // Render visible cards (current + next few for stacking effect)
-        const visibleCards = 4;
-        for (let i = 0; i < Math.min(visibleCards, this.images.length - this.currentIndex); i++) {
-            const imageIndex = this.currentIndex + i;
-            const image = this.images[imageIndex];
-            
-            // Check if we have a preloaded card
-            let card = this.preloadedCards.get(imageIndex);
-            
-            if (!card) {
-                // Create new card if not preloaded
-                card = this.createImageCard(image, i === 0);
-            } else {
-                // Use preloaded card and update swipe handlers
-                if (i === 0) {
-                    this.addSwipeHandlers(card);
-                }
-                // Remove from preloaded map since it's now visible
-                this.preloadedCards.delete(imageIndex);
-            }
-            
-            this.cardContainer.appendChild(card);
-        }
-        
-        // Preload next images after rendering current ones
-        this.preloadNextImages();
-    }
-    
-    preloadNextImages() {
-        const preloadBuffer = 3; // Preload next 3 images
-        
-        for (let i = 1; i <= preloadBuffer; i++) {
-            const preloadIndex = this.currentIndex + i;
-            
-            // Skip if index is out of bounds or already preloaded
-            if (preloadIndex >= this.images.length || this.preloadedCards.has(preloadIndex)) {
-                continue;
-            }
-            
-            const image = this.images[preloadIndex];
-            const preloadCard = this.createImageCard(image, false);
-            
-            // Hide preloaded card (position off-screen)
-            preloadCard.style.position = 'absolute';
-            preloadCard.style.left = '-9999px';
-            preloadCard.style.top = '0';
-            
-            // Add to DOM to trigger loading, but keep hidden
-            this.cardContainer.appendChild(preloadCard);
-            
-            // Store in preloaded cards map
-            this.preloadedCards.set(preloadIndex, preloadCard);
-        }
-        
-        // Clean up preloaded cards that are no longer needed
-        this.cleanupPreloadedCards();
-    }
-    
-    cleanupPreloadedCards() {
-        const currentRangeStart = this.currentIndex;
-        const currentRangeEnd = this.currentIndex + 6; // Keep buffer of 6 cards
-        
-        for (const [index, card] of this.preloadedCards.entries()) {
-            if (index < currentRangeStart || index > currentRangeEnd) {
-                // Remove card from DOM and map
-                if (card.parentNode) {
-                    card.parentNode.removeChild(card);
-                }
-                this.preloadedCards.delete(index);
-            }
-        }
-    }
-    
-    createImageCard(image, isTopCard) {
-        const card = document.createElement('div');
-        card.className = 'image-card';
-        card.dataset.imageId = image.id;
-        
-        // Set thumbnail as background with blur effect
-        if (image.thumbUrl) {
-            card.style.backgroundImage = `url('${image.thumbUrl}')`;
-            card.style.backgroundSize = 'cover';
-            card.style.backgroundPosition = 'center';
-            card.style.filter = 'blur(5px)';
-        }
-        
-        const iframe = document.createElement('iframe');
-        iframe.src = image.embedUrl;
-        iframe.className = 'image-iframe';
-        iframe.style.pointerEvents = 'none'; // Critical for swipe interaction
-        iframe.style.opacity = '0'; // Start invisible
-        
-        // Add load event listener for smooth fade-in
-        iframe.addEventListener('load', () => {
-            iframe.style.opacity = '1';
-            // Remove blur from background when iframe loads
-            card.style.filter = 'none';
+
+    bindEvents() {
+        // Get Images button
+        document.getElementById('get-images-btn').addEventListener('click', () => {
+            this.fetchImages();
         });
-        
-        card.appendChild(iframe);
-        
-        // Add swipe handlers only to the top card
-        if (isTopCard) {
-            this.addSwipeHandlers(card);
-        }
-        
-        return card;
-    }
-    
-    addSwipeHandlers(card) {
-        // Mouse events
-        card.addEventListener('mousedown', (e) => this.handleStart(e, e.clientX));
-        document.addEventListener('mousemove', (e) => this.handleMove(e, e.clientX));
-        document.addEventListener('mouseup', () => this.handleEnd());
-        
-        // Touch events
-        card.addEventListener('touchstart', (e) => this.handleStart(e, e.touches[0].clientX));
-        document.addEventListener('touchmove', (e) => this.handleMove(e, e.touches[0].clientX));
-        document.addEventListener('touchend', () => this.handleEnd());
-        
-        // Prevent default drag behavior
-        card.addEventListener('dragstart', (e) => e.preventDefault());
-    }
-    
-    handleStart(e, clientX) {
-        this.isDragging = true;
-        this.startX = clientX;
-        this.currentX = clientX;
-        
-        const card = e.currentTarget;
-        card.style.transition = 'none';
-    }
-    
-    handleMove(e, clientX) {
-        if (!this.isDragging) return;
-        
-        e.preventDefault();
-        this.currentX = clientX;
-        const deltaX = this.currentX - this.startX;
-        
-        const topCard = this.cardContainer.querySelector('.image-card');
-        if (topCard) {
-            const rotation = deltaX * 0.1;
-            topCard.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
+
+        // Control buttons
+        document.getElementById('approve-btn').addEventListener('click', () => {
+            this.approveImage();
+        });
+
+        document.getElementById('disapprove-btn').addEventListener('click', () => {
+            this.disapproveImage();
+        });
+
+        document.getElementById('undo-btn').addEventListener('click', () => {
+            this.undoLastAction();
+        });
+
+        // Submission buttons
+        document.getElementById('submit-review-btn').addEventListener('click', () => {
+            this.submitReview();
+        });
+
+        document.getElementById('review-again-btn').addEventListener('click', () => {
+            this.resetReview();
+        });
+
+        document.getElementById('retry-btn').addEventListener('click', () => {
+            this.showScreen('loading-screen');
+        });
+
+        // Keyboard events
+        document.addEventListener('keydown', (e) => {
+            if (this.getCurrentScreen() !== 'review-screen') return;
             
-            // Visual feedback
-            if (Math.abs(deltaX) > this.dragThreshold) {
-                if (deltaX > 0) {
-                    topCard.classList.add('swiping-right');
-                    topCard.classList.remove('swiping-left');
-                } else {
-                    topCard.classList.add('swiping-left');
-                    topCard.classList.remove('swiping-right');
-                }
-            } else {
-                topCard.classList.remove('swiping-right', 'swiping-left');
+            switch(e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    this.disapproveImage();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    this.approveImage();
+                    break;
+                case 'Backspace':
+                    e.preventDefault();
+                    this.undoLastAction();
+                    break;
             }
-        }
+        });
+
+        // Touch and mouse events for swiping
+        this.bindSwipeEvents();
     }
-    
-    handleEnd() {
+
+    bindSwipeEvents() {
+        const cardStack = document.getElementById('card-stack');
+
+        // Mouse events
+        cardStack.addEventListener('mousedown', (e) => this.handleStart(e));
+        document.addEventListener('mousemove', (e) => this.handleMove(e));
+        document.addEventListener('mouseup', (e) => this.handleEnd(e));
+
+        // Touch events
+        cardStack.addEventListener('touchstart', (e) => this.handleStart(e), { passive: false });
+        document.addEventListener('touchmove', (e) => this.handleMove(e), { passive: false });
+        document.addEventListener('touchend', (e) => this.handleEnd(e));
+    }
+
+    handleStart(e) {
+        if (this.getCurrentScreen() !== 'review-screen') return;
+        if (this.currentIndex >= this.images.length) return;
+
+        this.isDragging = true;
+        const touch = e.touches ? e.touches[0] : e;
+        this.startX = touch.clientX;
+        this.startY = touch.clientY;
+        this.currentX = this.startX;
+        this.currentY = this.startY;
+
+        const currentCard = this.getCurrentCard();
+        if (currentCard) {
+            currentCard.classList.add('dragging');
+        }
+
+        e.preventDefault();
+    }
+
+    handleMove(e) {
         if (!this.isDragging) return;
-        
+
+        const touch = e.touches ? e.touches[0] : e;
+        this.currentX = touch.clientX;
+        this.currentY = touch.clientY;
+
+        const deltaX = this.currentX - this.startX;
+        const deltaY = this.currentY - this.startY;
+        const rotation = deltaX * 0.1;
+
+        const currentCard = this.getCurrentCard();
+        if (currentCard) {
+            currentCard.style.transform = `translateX(${deltaX}px) translateY(${deltaY}px) rotate(${rotation}deg)`;
+            currentCard.style.opacity = 1 - Math.abs(deltaX) / 300;
+
+            // Show swipe indicators
+            this.updateSwipeIndicators(deltaX);
+        }
+
+        e.preventDefault();
+    }
+
+    handleEnd(e) {
+        if (!this.isDragging) return;
+
         this.isDragging = false;
         const deltaX = this.currentX - this.startX;
-        const topCard = this.cardContainer.querySelector('.image-card');
-        
-        if (topCard) {
-            topCard.style.transition = '';
-            topCard.classList.remove('swiping-right', 'swiping-left');
+        const currentCard = this.getCurrentCard();
+
+        if (currentCard) {
+            currentCard.classList.remove('dragging');
             
-            if (Math.abs(deltaX) > this.dragThreshold) {
-                // Determine swipe direction and act accordingly
+            // Determine if swipe threshold was met
+            const threshold = 100;
+            
+            if (Math.abs(deltaX) > threshold) {
                 if (deltaX > 0) {
                     this.approveImage();
                 } else {
@@ -354,196 +151,443 @@ class ImageEvaluator {
                 }
             } else {
                 // Snap back to center
-                topCard.style.transform = '';
+                currentCard.style.transform = '';
+                currentCard.style.opacity = '';
+            }
+        }
+
+        this.hideSwipeIndicators();
+        e.preventDefault();
+    }
+
+    updateSwipeIndicators(deltaX) {
+        const approveIndicator = document.querySelector('.swipe-indicator.approve');
+        const disapproveIndicator = document.querySelector('.swipe-indicator.disapprove');
+
+        if (!approveIndicator || !disapproveIndicator) {
+            // Create indicators if they don't exist
+            this.createSwipeIndicators();
+            return;
+        }
+
+        const threshold = 50;
+        
+        if (deltaX > threshold) {
+            approveIndicator.classList.add('visible');
+            disapproveIndicator.classList.remove('visible');
+        } else if (deltaX < -threshold) {
+            disapproveIndicator.classList.add('visible');
+            approveIndicator.classList.remove('visible');
+        } else {
+            approveIndicator.classList.remove('visible');
+            disapproveIndicator.classList.remove('visible');
+        }
+    }
+
+    createSwipeIndicators() {
+        const currentCard = this.getCurrentCard();
+        if (!currentCard) return;
+
+        // Remove existing indicators
+        const existingIndicators = currentCard.querySelectorAll('.swipe-indicator');
+        existingIndicators.forEach(indicator => indicator.remove());
+
+        // Create approve indicator
+        const approveIndicator = document.createElement('div');
+        approveIndicator.className = 'swipe-indicator approve';
+        approveIndicator.textContent = 'APPROVE';
+        currentCard.appendChild(approveIndicator);
+
+        // Create disapprove indicator
+        const disapproveIndicator = document.createElement('div');
+        disapproveIndicator.className = 'swipe-indicator disapprove';
+        disapproveIndicator.textContent = 'DISAPPROVE';
+        currentCard.appendChild(disapproveIndicator);
+    }
+
+    hideSwipeIndicators() {
+        const indicators = document.querySelectorAll('.swipe-indicator');
+        indicators.forEach(indicator => indicator.classList.remove('visible'));
+    }
+
+    async fetchImages() {
+        try {
+            this.showLoading('Fetching images...');
+            
+            // Get folder ID from input field, URL parameter, or use mock for development
+            const folderId = this.getFolderId();
+            
+            if (!folderId) {
+                throw new Error('Please enter a Google Drive folder ID');
+            }
+            
+            const response = await fetch('https://n8n.jacopogomarasca.it/webhook/7c46aa4d-1163-49f2-85f3-0e4c3dcc74f0', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ folderId })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.assets || !Array.isArray(data.assets)) {
+                throw new Error('Invalid response format');
+            }
+
+            this.images = data.assets.map(asset => ({
+                id: asset.id,
+                status: 'undecided'
+            }));
+            
+            this.resumeUrl = data.resumeUrl;
+            
+            if (this.images.length === 0) {
+                throw new Error('No images found in the folder');
+            }
+
+            this.currentIndex = 0;
+            this.reviewHistory = [];
+            this.startReview();
+            
+        } catch (error) {
+            console.error('Error fetching images:', error);
+            this.showError('Failed to fetch images. Please check the folder ID and try again.');
+        }
+    }
+
+    getFolderId() {
+        // First check the input field
+        const inputField = document.getElementById('folder-id-input');
+        const inputValue = inputField ? inputField.value.trim() : '';
+        
+        if (inputValue) {
+            return this.extractFolderIdFromInput(inputValue);
+        }
+        
+        // Fallback to URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('folderId');
+    }
+
+    extractFolderIdFromInput(input) {
+        // Extract folder ID from various Google Drive URL formats or return as-is if already an ID
+        
+        // Full URL: https://drive.google.com/drive/folders/1ABC123...
+        const folderMatch = input.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+        if (folderMatch) {
+            return folderMatch[1];
+        }
+        
+        // Sharing URL: https://drive.google.com/drive/u/0/folders/1ABC123...
+        const shareMatch = input.match(/\/u\/\d+\/folders\/([a-zA-Z0-9_-]+)/);
+        if (shareMatch) {
+            return shareMatch[1];
+        }
+        
+        // Direct folder ID (assume it's already clean if no URL pattern found)
+        if (input.match(/^[a-zA-Z0-9_-]+$/)) {
+            return input;
+        }
+        
+        return null;
+    }
+
+    validateFolderId(folderId) {
+        // Google Drive folder IDs are typically 25-44 characters long and contain letters, numbers, underscores, and hyphens
+        return folderId && folderId.length >= 25 && folderId.length <= 44 && /^[a-zA-Z0-9_-]+$/.test(folderId);
+    }
+
+    startReview() {
+        this.showScreen('review-screen');
+        this.updateProgress();
+        this.loadNextImages();
+        this.updateUndoButton();
+    }
+
+    loadNextImages() {
+        const cardStack = document.getElementById('card-stack');
+        cardStack.innerHTML = '';
+
+        // Load next 3 images for buffer
+        const imagesToLoad = Math.min(3, this.images.length - this.currentIndex);
+        
+        for (let i = 0; i < imagesToLoad; i++) {
+            const imageIndex = this.currentIndex + i;
+            if (imageIndex < this.images.length) {
+                this.createImageCard(this.images[imageIndex], i);
             }
         }
     }
-    
+
+    createImageCard(image, stackPosition) {
+        const card = document.createElement('div');
+        card.className = 'image-card';
+        card.dataset.imageId = image.id;
+
+        const cardContent = document.createElement('div');
+        cardContent.className = 'card-content';
+
+        // Create loading spinner
+        const spinner = document.createElement('div');
+        spinner.className = 'loading-spinner';
+        cardContent.appendChild(spinner);
+
+        // Set low-res background immediately
+        const lowResUrl = `https://drive.google.com/thumbnail?id=${image.id}&sz=w400`;
+        cardContent.style.backgroundImage = `url(${lowResUrl})`;
+
+        card.appendChild(cardContent);
+
+        // Load high-res image
+        this.loadHighResImage(image.id, cardContent);
+
+        // Add to stack
+        const cardStack = document.getElementById('card-stack');
+        cardStack.appendChild(card);
+
+        // Create swipe indicators for the top card
+        if (stackPosition === 0) {
+            this.createSwipeIndicators();
+        }
+    }
+
+    loadHighResImage(imageId, cardContent) {
+        const hiResImage = new Image();
+        const hiResUrl = `https://drive.google.com/thumbnail?id=${imageId}&sz=w1200`;
+        
+        hiResImage.onload = () => {
+            // Remove spinner
+            const spinner = cardContent.querySelector('.loading-spinner');
+            if (spinner) {
+                spinner.remove();
+            }
+
+            // Create and show high-res image
+            const img = document.createElement('img');
+            img.src = hiResUrl;
+            img.className = 'card-image';
+            img.alt = 'Review image';
+            
+            cardContent.appendChild(img);
+            
+            // Fade in the image
+            setTimeout(() => {
+                img.classList.add('loaded');
+            }, 50);
+        };
+
+        hiResImage.onerror = () => {
+            // Remove spinner and show error
+            const spinner = cardContent.querySelector('.loading-spinner');
+            if (spinner) {
+                spinner.remove();
+            }
+
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'error-message';
+            errorMsg.textContent = 'Image could not be loaded';
+            cardContent.appendChild(errorMsg);
+        };
+
+        hiResImage.src = hiResUrl;
+    }
+
     approveImage() {
         this.processImageDecision('approved');
     }
-    
+
     disapproveImage() {
         this.processImageDecision('not approved');
     }
-    
-    processImageDecision(status) {
+
+    processImageDecision(decision) {
         if (this.currentIndex >= this.images.length) return;
-        
-        // Save to history for undo functionality
-        this.reviewHistory.push({
-            index: this.currentIndex,
-            previousStatus: this.images[this.currentIndex].status
-        });
+
+        const currentImage = this.images[this.currentIndex];
+        const previousStatus = currentImage.status;
         
         // Update image status
-        this.images[this.currentIndex].status = status;
+        currentImage.status = decision;
         
-        // Animate card away
-        const topCard = this.cardContainer.querySelector('.image-card');
-        if (topCard) {
-            if (status === 'approved') {
-                topCard.classList.add('swiped-right');
-            } else {
-                topCard.classList.add('swiped-left');
-            }
+        // Add to history for undo functionality
+        this.reviewHistory.push({
+            index: this.currentIndex,
+            previousStatus,
+            newStatus: decision
+        });
+
+        // Animate card out
+        const currentCard = this.getCurrentCard();
+        if (currentCard) {
+            const direction = decision === 'approved' ? 'right' : 'left';
+            currentCard.classList.add(`swiped-${direction}`);
             
-            // Remove card after animation
             setTimeout(() => {
-                if (topCard.parentNode) {
-                    topCard.parentNode.removeChild(topCard);
-                }
-            }, 500);
+                currentCard.remove();
+            }, 300);
         }
-        
-        // Move to next image
+
         this.currentIndex++;
-        
-        // Update UI
-        setTimeout(() => {
-            if (this.currentIndex >= this.images.length) {
-                this.showCompletionScreen();
-            } else {
-                this.renderImages();
-                this.updateProgress();
-            }
-            this.updateUndoButton();
-        }, 200);
+        this.updateProgress();
+
+        if (this.currentIndex >= this.images.length) {
+            // Review complete
+            setTimeout(() => {
+                this.showSubmissionScreen();
+            }, 300);
+        } else {
+            // Load next image if needed
+            setTimeout(() => {
+                this.loadNextImageIfNeeded();
+            }, 100);
+        }
+
+        this.updateUndoButton();
     }
-    
+
+    loadNextImageIfNeeded() {
+        const cardStack = document.getElementById('card-stack');
+        const currentCards = cardStack.children.length;
+        
+        // Always try to maintain 3 cards in the stack
+        const nextImageIndex = this.currentIndex + currentCards;
+        
+        if (nextImageIndex < this.images.length) {
+            this.createImageCard(this.images[nextImageIndex], currentCards);
+        }
+    }
+
     undoLastAction() {
         if (this.reviewHistory.length === 0) return;
-        
+
         const lastAction = this.reviewHistory.pop();
         
-        // If we're at completion screen, go back to review
-        if (this.currentIndex >= this.images.length) {
-            this.switchToScreen('review');
-        }
+        // Restore previous status
+        this.images[lastAction.index].status = lastAction.previousStatus;
         
-        // Restore previous state
+        // Go back to previous image
         this.currentIndex = lastAction.index;
-        this.images[this.currentIndex].status = lastAction.previousStatus;
         
-        // Re-render
-        this.renderImages();
+        // Reload the card stack
+        this.loadNextImages();
         this.updateProgress();
         this.updateUndoButton();
     }
-    
-    goBackToLastImage() {
-        this.undoLastAction();
-    }
-    
-    updateProgress() {
-        this.currentImageEl.textContent = this.currentIndex + 1;
-        this.totalImagesEl.textContent = this.images.length;
-    }
-    
+
     updateUndoButton() {
-        this.undoBtn.disabled = this.reviewHistory.length === 0;
+        const undoBtn = document.getElementById('undo-btn');
+        undoBtn.disabled = this.reviewHistory.length === 0;
     }
-    
-    showCompletionScreen() {
-        // Calculate stats
-        const approved = this.images.filter(img => img.status === 'approved').length;
-        const disapproved = this.images.filter(img => img.status === 'not approved').length;
-        
-        this.approvedCountEl.textContent = approved;
-        this.disapprovedCountEl.textContent = disapproved;
-        
-        this.switchToScreen('completion');
+
+    getCurrentCard() {
+        const cardStack = document.getElementById('card-stack');
+        return cardStack.querySelector('.image-card:first-child');
     }
-    
-    submitReview() {
-        // For Phase 1, just log the results
-        const reviewResults = {
-            images: this.images.map(img => ({
-                id: img.id,
-                status: img.status
-            })),
-            resumeUrl: this.resumeUrl,
-            summary: {
-                total: this.images.length,
-                approved: this.images.filter(img => img.status === 'approved').length,
-                disapproved: this.images.filter(img => img.status === 'not approved').length
-            }
-        };
+
+    updateProgress() {
+        const progressFill = document.getElementById('progress-fill');
+        const currentImageSpan = document.getElementById('current-image');
+        const totalImagesSpan = document.getElementById('total-images');
         
-        console.log('Review Results:', reviewResults);
-        alert('Review submitted! Check console for details.');
+        const progress = (this.currentIndex / this.images.length) * 100;
+        progressFill.style.width = `${progress}%`;
+        
+        currentImageSpan.textContent = this.currentIndex + 1;
+        totalImagesSpan.textContent = this.images.length;
     }
-    
-    handleKeyboardInput(e) {
-        // Only handle keyboard input when on review screen or completion screen
-        if (!this.reviewScreen.classList.contains('active') && 
-            !this.completionScreen.classList.contains('active')) {
+
+    showSubmissionScreen() {
+        const approvedCount = this.images.filter(img => img.status === 'approved').length;
+        const disapprovedCount = this.images.filter(img => img.status === 'not approved').length;
+        
+        document.getElementById('approved-count').textContent = approvedCount;
+        document.getElementById('disapproved-count').textContent = disapprovedCount;
+        
+        this.showScreen('submission-screen');
+    }
+
+    async submitReview() {
+        if (!this.resumeUrl) {
+            this.showError('No submission URL available');
             return;
         }
-        
-        switch (e.key) {
-            case 'ArrowRight':
-                e.preventDefault();
-                if (this.reviewScreen.classList.contains('active') && this.currentIndex < this.images.length) {
-                    this.approveImage();
-                }
-                break;
-                
-            case 'ArrowLeft':
-                e.preventDefault();
-                if (this.reviewScreen.classList.contains('active') && this.currentIndex < this.images.length) {
-                    this.disapproveImage();
-                }
-                break;
-                
-            case 'Backspace':
-                e.preventDefault();
-                this.undoLastAction();
-                break;
+
+        try {
+            this.showLoading('Submitting review...');
+            
+            // Prepare submission data - only disapproved images
+            const submissionData = this.images
+                .filter(image => image.status === 'not approved')
+                .map(image => ({
+                    fileId: image.id,
+                    "approval status": image.status
+                }));
+
+            const response = await fetch(this.resumeUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(submissionData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Show success message
+            this.showSuccess('Review submitted successfully!');
+            
+        } catch (error) {
+            console.error('Error submitting review:', error);
+            this.showError('Failed to submit review. Please try again.');
         }
     }
-    
-    switchToScreen(screenName) {
-        // Hide all screens
+
+    resetReview() {
+        this.currentIndex = 0;
+        this.reviewHistory = [];
+        this.images.forEach(image => image.status = 'undecided');
+        this.startReview();
+    }
+
+    showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.remove('active');
         });
-        
-        // Show target screen
-        switch (screenName) {
-            case 'initial':
-                this.initialScreen.classList.add('active');
-                break;
-            case 'review':
-                this.reviewScreen.classList.add('active');
-                break;
-            case 'completion':
-                this.completionScreen.classList.add('active');
-                break;
-        }
+        document.getElementById(screenId).classList.add('active');
     }
-    
-    showLoading(show) {
-        if (show) {
-            this.loadingEl.classList.remove('hidden');
-            this.getImagesBtn.disabled = true;
-        } else {
-            this.loadingEl.classList.add('hidden');
-            this.getImagesBtn.disabled = false;
-        }
+
+    getCurrentScreen() {
+        const activeScreen = document.querySelector('.screen.active');
+        return activeScreen ? activeScreen.id : null;
     }
-    
+
+    showLoading(message) {
+        // You could implement a loading overlay here
+        console.log('Loading:', message);
+    }
+
     showError(message) {
-        this.errorMessageEl.textContent = message;
-        this.errorMessageEl.classList.remove('hidden');
+        document.getElementById('error-message').textContent = message;
+        this.showScreen('error-screen');
     }
-    
-    hideError() {
-        this.errorMessageEl.classList.add('hidden');
+
+    showSuccess(message) {
+        // You could implement a success message here
+        console.log('Success:', message);
+        setTimeout(() => {
+            this.showScreen('loading-screen');
+        }, 2000);
     }
 }
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new ImageEvaluator();
+    new ImageReviewer();
 });
