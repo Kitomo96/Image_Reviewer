@@ -8,6 +8,19 @@
 </head>
 <body>
     <div id="app">
+        <!-- Review History Sidebar -->
+        <div id="review-sidebar" class="review-sidebar">
+            <div class="sidebar-header">
+                <h3>Review History</h3>
+                <div class="sidebar-progress">
+                    <span id="sidebar-current">0</span>/<span id="sidebar-total">0</span>
+                </div>
+            </div>
+            <div id="history-list" class="history-list">
+                <!-- History items will be added here -->
+            </div>
+        </div>
+
         <!-- Loading Screen -->
         <div id="loading-screen" class="screen active">
             <div class="loading-content">
@@ -23,22 +36,12 @@
 
         <!-- Main Review Interface -->
         <div id="review-screen" class="screen">
-            <!-- Review History Sidebar -->
-            <div id="review-sidebar" class="review-sidebar">
-                <div class="sidebar-header">
-                    <h3>History</h3>
-                    <div class="sidebar-progress">
-                        <span id="sidebar-current">0</span>/<span id="sidebar-total">0</span>
-                    </div>
-                </div>
-                <div id="history-list" class="history-list">
-                    <!-- History items will be added here -->
-                </div>
-            </div>
-
             <!-- Main Content Area -->
             <div class="main-content">
                 <div class="header">
+                    <button id="sidebar-toggle" class="sidebar-toggle">
+                        <span class="toggle-icon">☰</span>
+                    </button>
                     <div class="progress-bar">
                         <div id="progress-fill" class="progress-fill"></div>
                     </div>

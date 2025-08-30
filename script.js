@@ -70,6 +70,14 @@ class ImageReviewer {
             }
         });
 
+        // Sidebar toggle
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                this.toggleSidebar();
+            });
+        }
+
         // Touch and mouse events for swiping
         this.bindSwipeEvents();
     }
@@ -574,6 +582,13 @@ class ImageReviewer {
         if (sidebarCurrent && sidebarTotal) {
             sidebarCurrent.textContent = this.reviewHistory.length;
             sidebarTotal.textContent = this.images.length;
+        }
+    }
+
+    toggleSidebar() {
+        const sidebar = document.getElementById('review-sidebar');
+        if (sidebar) {
+            sidebar.classList.toggle('visible');
         }
     }
 
