@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Evaluation Platform</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Initial Screen -->
+        <div id="initial-screen" class="screen active">
+            <div class="initial-content">
+                <h1>Image Evaluation Platform</h1>
+                <p>Extract and review images from Google Drive folder</p>
+                <div id="folder-input-section" class="folder-input">
+                    <label for="folder-id-input">Google Drive Folder ID:</label>
+                    <input type="text" id="folder-id-input" placeholder="Enter folder ID (e.g., 1oRCubBhnzp_IfCPQDHyjBK33qJS6dHJ9)" />
+                </div>
+                <button id="get-images-btn" class="primary-btn">Get Images</button>
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Fetching images...</p>
+                </div>
+                <div id="error-message" class="error-message hidden"></div>
+            </div>
+        </div>
+
+        <!-- Review Screen -->
+        <div id="review-screen" class="screen">
+            <div class="review-header">
+                <div class="progress-info">
+                    <span id="current-image">1</span> of <span id="total-images">0</span>
+                </div>
+                <button id="undo-btn" class="secondary-btn" disabled>↶ Undo</button>
+            </div>
+
+            <div class="card-container" id="card-container">
+                <!-- Image cards will be dynamically inserted here -->
+            </div>
+
+            <div class="action-buttons">
+                <button id="disapprove-btn" class="action-btn disapprove-btn">
+                    ❌ Disapprove
+                </button>
+                <button id="approve-btn" class="action-btn approve-btn">
+                    ✔️ Approve
+                </button>
+            </div>
+
+            <div class="keyboard-hints">
+                <p>← Left Arrow: Disapprove | Right Arrow: Approve → | Backspace: Undo</p>
+            </div>
+        </div>
+
+        <!-- Completion Screen -->
+        <div id="completion-screen" class="screen">
+            <div class="completion-content">
+                <h2>🎉 Review Complete!</h2>
+                <p>You've reviewed all images.</p>
+                <div class="completion-stats">
+                    <div class="stat">
+                        <span class="stat-number" id="approved-count">0</span>
+                        <span class="stat-label">Approved</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number" id="disapproved-count">0</span>
+                        <span class="stat-label">Disapproved</span>
+                    </div>
+                </div>
+                <div class="completion-buttons">
+                    <button id="go-back-btn" class="secondary-btn">Go Back</button>
+                    <button id="submit-review-btn" class="primary-btn">Submit Review</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
