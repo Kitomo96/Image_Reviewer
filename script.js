@@ -47,6 +47,7 @@ class ImageReviewer {
         });
 
         document.getElementById('retry-btn').addEventListener('click', () => {
+            this.hideSidebar();
             this.showScreen('loading-screen');
         });
 
@@ -343,6 +344,7 @@ class ImageReviewer {
 
     startReview() {
         this.showScreen('review-screen');
+        this.showSidebar();
         this.updateProgress();
         this.loadNextImages();
         this.updateUndoButton();
@@ -585,6 +587,24 @@ class ImageReviewer {
         }
     }
 
+    showSidebar() {
+        const sidebar = document.getElementById('review-sidebar');
+        const mainContent = document.querySelector('.main-content');
+        if (sidebar && mainContent) {
+            sidebar.classList.add('show');
+            mainContent.classList.add('with-sidebar');
+        }
+    }
+
+    hideSidebar() {
+        const sidebar = document.getElementById('review-sidebar');
+        const mainContent = document.querySelector('.main-content');
+        if (sidebar && mainContent) {
+            sidebar.classList.remove('show');
+            mainContent.classList.remove('with-sidebar');
+        }
+    }
+
     toggleSidebar() {
         const sidebar = document.getElementById('review-sidebar');
         if (sidebar) {
@@ -684,6 +704,13 @@ class ImageReviewer {
         this.currentIndex = 0;
         this.reviewHistory = [];
         this.images.forEach(image => image.status = 'undecided');
+        
+        // Clear sidebar history
+        const historyList = document.getElementById('history-list');
+        if (historyList) {
+            historyList.innerHTML = '';
+        }
+        
         this.startReview();
     }
 
@@ -713,6 +740,7 @@ class ImageReviewer {
         // You could implement a success message here
         console.log('Success:', message);
         setTimeout(() => {
+            this.hideSidebar();
             this.showScreen('loading-screen');
         }, 2000);
     }
