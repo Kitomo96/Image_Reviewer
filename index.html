@@ -338,6 +338,35 @@
             -webkit-tap-highlight-color: transparent;
         }
         
+        .swipe-indicator {
+            position: absolute;
+            top: 20px;
+            font-size: 2em;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            color: white;
+            pointer-events: none;
+        }
+        
+        .swipe-indicator.approve {
+            right: 20px;
+            background-color: rgba(76, 175, 80, 0.9);
+        }
+        
+        .swipe-indicator.disapprove {
+            left: 20px;
+            background-color: rgba(244, 67, 54, 0.9);
+        }
+        
+        .swipe-indicator.show {
+            opacity: 1;
+        }
+        
         /* Mobile full-screen image cards */
         @media screen and (max-width: 480px) {
             .image-card {
@@ -570,6 +599,18 @@
                 const card = document.createElement('div');
                 card.className = 'image-card';
                 card.style.zIndex = imageAssets.length - index;
+                
+                // Add swipe indicators
+                const approveIndicator = document.createElement('div');
+                approveIndicator.className = 'swipe-indicator approve';
+                approveIndicator.textContent = 'APPROVED';
+                card.appendChild(approveIndicator);
+                
+                const disapproveIndicator = document.createElement('div');
+                disapproveIndicator.className = 'swipe-indicator disapprove';
+                disapproveIndicator.textContent = 'REJECTED';
+                card.appendChild(disapproveIndicator);
+                
                 const spinner = document.createElement('div');
                 spinner.className = 'spinner';
                 card.appendChild(spinner);
@@ -706,6 +747,23 @@
                     if (Math.abs(diffX) > Math.abs(diffY)) {
                         event.preventDefault();
                         card.style.transform = `translateX(${diffX}px) rotate(${diffX * 0.1}deg)`;
+                        
+                        // Show appropriate indicator based on swipe direction
+                        const approveIndicator = card.querySelector('.swipe-indicator.approve');
+                        const disapproveIndicator = card.querySelector('.swipe-indicator.disapprove');
+                        
+                        if (Math.abs(diffX) > 50) {
+                            if (diffX > 0) {
+                                approveIndicator.classList.add('show');
+                                disapproveIndicator.classList.remove('show');
+                            } else {
+                                disapproveIndicator.classList.add('show');
+                                approveIndicator.classList.remove('show');
+                            }
+                        } else {
+                            approveIndicator.classList.remove('show');
+                            disapproveIndicator.classList.remove('show');
+                        }
                     }
                 };
                 const dragEnd = (event) => {
@@ -718,6 +776,13 @@
                     const diffX = point.clientX - dragState.startX;
                     card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
                     card.style.cursor = 'grab';
+                    
+                    // Hide indicators
+                    const approveIndicator = card.querySelector('.swipe-indicator.approve');
+                    const disapproveIndicator = card.querySelector('.swipe-indicator.disapprove');
+                    approveIndicator.classList.remove('show');
+                    disapproveIndicator.classList.remove('show');
+                    
                     if (Math.abs(diffX) > 100) {
                         handleSwipeAction(diffX > 0 ? 'right' : 'left');
                     } else {
