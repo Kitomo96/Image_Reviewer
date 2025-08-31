@@ -99,6 +99,15 @@
                 margin: 15px 0 25px;
             }
             
+            /* Keep Get Images button compact on mobile */
+            #get-images-btn {
+                font-size: 0.9em;
+                padding: 0.7em 1em;
+                min-height: 40px;
+                width: auto;
+                max-width: 120px;
+            }
+            
             /* Adjust heading sizes */
             h1 {
                 font-size: 2em;
@@ -223,6 +232,15 @@
                 padding: 1em 1.3em;
                 min-height: 48px;
             }
+            
+            /* Keep Get Images button appropriate on tablets */
+            #get-images-btn {
+                font-size: 1em;
+                padding: 0.8em 1.2em;
+                min-height: 44px;
+                width: auto;
+                max-width: 140px;
+            }
         }
         
         /* Large tablets and small laptops (769px-1024px) */
@@ -243,6 +261,15 @@
                 font-size: 0.9em !important;
                 padding: 0.8em 1em !important;
                 min-height: 44px !important;
+            }
+            
+            /* Exception for Get Images button - keep it very compact */
+            #get-images-btn {
+                font-size: 0.8em;
+                padding: 0.6em 0.8em;
+                min-height: 36px;
+                width: auto;
+                max-width: 100px;
             }
             
             #folder-id-input {
@@ -300,7 +327,7 @@
             }
             
             .image-card img {
-                padding: 4px; /* Smaller padding on mobile */
+                padding: 8px; /* Consistent padding on mobile too */
                 border-radius: 4px;
             }
         }
@@ -313,8 +340,8 @@
             transition: opacity 0.4s ease-in-out;
             pointer-events: none;
             border-radius: 8px; /* Slight rounding */
-            /* Add small padding effect using box model */
-            padding: 6px;
+            /* Consistent padding on all sides using box model */
+            padding: 8px;
             box-sizing: border-box;
         }
         .image-card img.loaded { opacity: 1; }
@@ -379,7 +406,20 @@
 
         .approve-disapprove-controls button { flex-basis: 0; }
 
-        #get-images-btn, #submit-review-btn { background-color: var(--color-primary); }
+        #get-images-btn, #submit-review-btn { 
+            background-color: var(--color-primary); 
+        }
+        
+        /* Ensure Get Images button stays reasonable across all screen sizes */
+        #get-images-btn {
+            font-size: 1em;
+            padding: 0.8em 1.2em;
+            min-height: 44px;
+            width: auto;
+            flex-grow: 0;
+            flex-shrink: 0;
+            align-self: center;
+        }
         #disapprove-btn { background-color: var(--color-disapprove); }
         #approve-btn { background-color: var(--color-approve); }
         #undo-btn, #final-undo-btn { background-color: #6c757d; }
