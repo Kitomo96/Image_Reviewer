@@ -47,6 +47,7 @@ class ImageReviewer {
         });
 
         document.getElementById('retry-btn').addEventListener('click', () => {
+            this.hideSidebar();
             this.showScreen('loading-screen');
         });
 
@@ -69,6 +70,14 @@ class ImageReviewer {
                     break;
             }
         });
+
+        // Sidebar toggle
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                this.toggleSidebar();
+            });
+        }
 
         // Touch and mouse events for swiping
         this.bindSwipeEvents();
@@ -123,6 +132,9 @@ class ImageReviewer {
             currentCard.style.transform = `translateX(${deltaX}px) translateY(${deltaY}px) rotate(${rotation}deg)`;
             currentCard.style.opacity = 1 - Math.abs(deltaX) / 300;
 
+            // Add card fanning effect
+            this.updateCardFanning(deltaX);
+
             // Show swipe indicators
             this.updateSwipeIndicators(deltaX);
         }
@@ -157,6 +169,7 @@ class ImageReviewer {
         }
 
         this.hideSwipeIndicators();
+        this.clearCardFanning();
         e.preventDefault();
     }
 
@@ -208,6 +221,33 @@ class ImageReviewer {
     hideSwipeIndicators() {
         const indicators = document.querySelectorAll('.swipe-indicator');
         indicators.forEach(indicator => indicator.classList.remove('visible'));
+    }
+
+    updateCardFanning(deltaX) {
+        const cardStack = document.getElementById('card-stack');
+        const cards = cardStack.querySelectorAll('.image-card');
+        
+        // Clear existing fanning classes
+        cards.forEach(card => {
+            card.classList.remove('fanning-left', 'fanning-right');
+        });
+
+        // Add fanning effect based on swipe direction
+        const threshold = 30;
+        if (Math.abs(deltaX) > threshold) {
+            const direction = deltaX > 0 ? 'fanning-right' : 'fanning-left';
+            cards.forEach(card => {
+                card.classList.add(direction);
+            });
+        }
+    }
+
+    clearCardFanning() {
+        const cardStack = document.getElementById('card-stack');
+        const cards = cardStack.querySelectorAll('.image-card');
+        cards.forEach(card => {
+            card.classList.remove('fanning-left', 'fanning-right');
+        });
     }
 
     async fetchImages() {
@@ -304,6 +344,7 @@ class ImageReviewer {
 
     startReview() {
         this.showScreen('review-screen');
+        this.showSidebar();
         this.updateProgress();
         this.loadNextImages();
         this.updateUndoButton();
@@ -398,11 +439,36 @@ class ImageReviewer {
     }
 
     approveImage() {
-        this.processImageDecision('approved');
+        this.triggerKeyboardAnimation('right');
+        setTimeout(() => this.processImageDecision('approved'), 280);
     }
 
     disapproveImage() {
-        this.processImageDecision('not approved');
+        this.triggerKeyboardAnimation('left');
+        setTimeout(() => this.processImageDecision('not approved'), 280);
+    }
+
+    triggerKeyboardAnimation(direction) {
+        const currentCard = this.getCurrentCard();
+        if (!currentCard) return;
+
+        // Add fanning effect
+        this.updateCardFanning(direction === 'right' ? 100 : -100);
+
+        // Animate the current card
+        currentCard.classList.add('dragging');
+        const translateX = direction === 'right' ? 100 : -100;
+        currentCard.style.transform = `translateX(${translateX}px) rotate(${direction === 'right' ? 30 : -30}deg)`;
+        currentCard.style.opacity = '0.5';
+
+        // Show swipe indicators
+        this.updateSwipeIndicators(translateX);
+
+        // Remove animation after delay
+        setTimeout(() => {
+            this.clearCardFanning();
+            this.hideSwipeIndicators();
+        }, 250);
     }
 
     processImageDecision(decision) {
@@ -420,6 +486,9 @@ class ImageReviewer {
             previousStatus,
             newStatus: decision
         });
+
+        // Add to sidebar history
+        this.addToSidebarHistory(currentImage, decision);
 
         // Animate card out
         const currentCard = this.getCurrentCard();
@@ -466,9 +535,13 @@ class ImageReviewer {
         if (this.reviewHistory.length === 0) return;
 
         const lastAction = this.reviewHistory.pop();
+        const undoneImage = this.images[lastAction.index];
         
         // Restore previous status
-        this.images[lastAction.index].status = lastAction.previousStatus;
+        undoneImage.status = lastAction.previousStatus;
+        
+        // Remove from sidebar history
+        this.removeFromSidebarHistory(undoneImage.id);
         
         // Go back to previous image
         this.currentIndex = lastAction.index;
@@ -499,6 +572,84 @@ class ImageReviewer {
         
         currentImageSpan.textContent = this.currentIndex + 1;
         totalImagesSpan.textContent = this.images.length;
+
+        // Update sidebar progress
+        this.updateSidebarProgress();
+    }
+
+    updateSidebarProgress() {
+        const sidebarCurrent = document.getElementById('sidebar-current');
+        const sidebarTotal = document.getElementById('sidebar-total');
+        
+        if (sidebarCurrent && sidebarTotal) {
+            sidebarCurrent.textContent = this.reviewHistory.length;
+            sidebarTotal.textContent = this.images.length;
+        }
+    }
+
+    showSidebar() {
+        const sidebar = document.getElementById('review-sidebar');
+        const mainContent = document.querySelector('.main-content');
+        if (sidebar && mainContent) {
+            sidebar.classList.add('show');
+            mainContent.classList.add('with-sidebar');
+        }
+    }
+
+    hideSidebar() {
+        const sidebar = document.getElementById('review-sidebar');
+        const mainContent = document.querySelector('.main-content');
+        if (sidebar && mainContent) {
+            sidebar.classList.remove('show');
+            mainContent.classList.remove('with-sidebar');
+        }
+    }
+
+    toggleSidebar() {
+        const sidebar = document.getElementById('review-sidebar');
+        if (sidebar) {
+            sidebar.classList.toggle('visible');
+        }
+    }
+
+    addToSidebarHistory(image, decision) {
+        const historyList = document.getElementById('history-list');
+        if (!historyList) return;
+
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        historyItem.dataset.imageId = image.id;
+
+        // Create thumbnail
+        const thumbnail = document.createElement('img');
+        thumbnail.className = 'history-thumbnail';
+        thumbnail.src = `https://drive.google.com/thumbnail?id=${image.id}&sz=w80`;
+        thumbnail.alt = 'Review thumbnail';
+
+        // Create status indicator
+        const status = document.createElement('span');
+        status.className = `history-status ${decision === 'approved' ? 'approved' : 'disapproved'}`;
+        status.textContent = decision === 'approved' ? '✓' : '✕';
+
+        historyItem.appendChild(thumbnail);
+        historyItem.appendChild(status);
+
+        // Add to top of list
+        historyList.insertBefore(historyItem, historyList.firstChild);
+
+        this.updateSidebarProgress();
+    }
+
+    removeFromSidebarHistory(imageId) {
+        const historyList = document.getElementById('history-list');
+        if (!historyList) return;
+
+        const historyItem = historyList.querySelector(`[data-image-id="${imageId}"]`);
+        if (historyItem) {
+            historyItem.remove();
+        }
+
+        this.updateSidebarProgress();
     }
 
     showSubmissionScreen() {
@@ -553,6 +704,13 @@ class ImageReviewer {
         this.currentIndex = 0;
         this.reviewHistory = [];
         this.images.forEach(image => image.status = 'undecided');
+        
+        // Clear sidebar history
+        const historyList = document.getElementById('history-list');
+        if (historyList) {
+            historyList.innerHTML = '';
+        }
+        
         this.startReview();
     }
 
@@ -582,6 +740,7 @@ class ImageReviewer {
         // You could implement a success message here
         console.log('Success:', message);
         setTimeout(() => {
+            this.hideSidebar();
             this.showScreen('loading-screen');
         }, 2000);
     }
