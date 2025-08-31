@@ -68,6 +68,12 @@
                 border-top: 1px solid #ddd;
             }
             
+            #progress-counter {
+                font-size: 1em;
+                margin-bottom: 8px;
+                padding: 6px 12px;
+            }
+            
             .controls {
                 gap: 15px;
                 margin: 0;
@@ -241,6 +247,12 @@
                 width: auto;
                 max-width: 140px;
             }
+            
+            #progress-counter {
+                font-size: 0.9em;
+                margin-bottom: 6px;
+                padding: 5px 10px;
+            }
         }
         
         /* Large tablets and small laptops (769px-1024px) */
@@ -275,6 +287,12 @@
             #folder-id-input {
                 font-size: 1em !important;
                 padding: 12px !important;
+            }
+            
+            #progress-counter {
+                font-size: 0.7em;
+                margin-bottom: 4px;
+                padding: 4px 8px;
             }
         }
         
@@ -372,6 +390,19 @@
             /* Ensure controls are easily accessible */
             margin-bottom: 10px;
         }
+        
+        #progress-counter {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: inline-block;
+        }
 
         .controls {
             margin-top: 15px;
@@ -443,6 +474,7 @@
         </div>
 
         <div id="controls-container" class="hidden">
+            <div id="progress-counter">1 / 10</div>
             <div class="controls">
                 <button id="undo-btn">Undo (Backspace)</button>
             </div>
@@ -484,6 +516,7 @@
                 submitReviewBtn: document.getElementById('submit-review-btn'),
                 approveBtn: document.getElementById('approve-btn'),
                 disapproveBtn: document.getElementById('disapprove-btn'),
+                progressCounter: document.getElementById('progress-counter'),
             };
             
             const fetchInitialData = async () => {
@@ -522,6 +555,7 @@
                     ui.startScreen.classList.add('hidden');
                     ui.swipeContainer.classList.remove('hidden');
                     ui.controlsContainer.classList.remove('hidden');
+                    updateProgressCounter();
                     preloadInitialImages();
                 } catch (error) {
                     alert(`Error fetching images: ${error.message}`);
@@ -579,6 +613,7 @@
                     cardToRemove.style.opacity = '0';
                 }
                 currentIndex++;
+                updateProgressCounter();
                 preloadNextImage();
                 if (currentIndex < imageAssets.length) {
                     const nextCard = cardElements[currentIndex];
@@ -599,6 +634,7 @@
                 }
                 currentIndex--;
                 reviewHistory[currentIndex].status = 'undecided';
+                updateProgressCounter();
                 const cardToRestore = cardElements[currentIndex];
                 if (cardToRestore) {
                     cardToRestore.style.transform = '';
@@ -692,6 +728,13 @@
                 card.removeEventListener('touchstart', dragStart);
                 card.addEventListener('mousedown', dragStart, { passive: false });
                 card.addEventListener('touchstart', dragStart, { passive: false });
+            };
+            
+            const updateProgressCounter = () => {
+                if (ui.progressCounter && imageAssets.length > 0) {
+                    const current = Math.min(currentIndex + 1, imageAssets.length);
+                    ui.progressCounter.textContent = `${current} / ${imageAssets.length}`;
+                }
             };
 
             ui.getImagesBtn.addEventListener('click', fetchInitialData);
