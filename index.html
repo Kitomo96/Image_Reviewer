@@ -180,27 +180,81 @@
             touch-action: pan-x pan-y;
         }
         
-        /* Additional mobile layout optimization */
-        @media screen and (max-width: 768px) {
-            body {
-                font-size: 18px; /* Larger base font size for mobile */
+        /* Landscape mobile phones - prioritize width over height */
+        @media screen and (max-width: 768px) and (orientation: landscape) {
+            #swipe-container {
+                height: 60vh !important; /* Reduce height in landscape */
+                width: 100% !important;
             }
             
-            /* Only apply these to tablets, not phones */
-            #app-container {
-                justify-content: flex-start;
-                padding-top: max(15px, env(safe-area-inset-top));
+            #controls-container {
+                height: 40vh !important; /* More space for controls */
+            }
+            
+            body {
+                font-size: 16px; /* Smaller font in landscape */
+            }
+            
+            button {
+                font-size: 1em !important;
+                padding: 0.8em 1.2em !important;
+                min-height: 44px !important;
             }
         }
         
+        /* Tablet range (481px-768px) */
         @media screen and (min-width: 481px) and (max-width: 768px) {
+            body {
+                font-size: 17px;
+            }
+            
             #swipe-container {
                 width: 95%;
-                max-width: none;
+                max-width: 600px; /* Larger max-width for tablets */
             }
             
             #start-screen, #final-screen {
                 width: 95%;
+                max-width: 600px;
+            }
+            
+            button {
+                font-size: 1.1em;
+                padding: 1em 1.3em;
+                min-height: 48px;
+            }
+        }
+        
+        /* Large tablets and small laptops (769px-1024px) */
+        @media screen and (min-width: 769px) and (max-width: 1024px) {
+            #swipe-container {
+                max-width: 500px;
+            }
+        }
+        
+        /* Very small screens */
+        @media screen and (max-width: 320px) {
+            #app-container {
+                padding: 5px;
+                gap: 5px;
+            }
+            
+            button {
+                font-size: 0.9em !important;
+                padding: 0.8em 1em !important;
+                min-height: 44px !important;
+            }
+            
+            #folder-id-input {
+                font-size: 1em !important;
+                padding: 12px !important;
+            }
+        }
+        
+        /* Large screens optimization */
+        @media screen and (min-width: 1200px) {
+            :root {
+                --card-max-width: 500px; /* Larger cards on big screens */
             }
         }
 
