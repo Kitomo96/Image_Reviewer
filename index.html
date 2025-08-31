@@ -3,92 +3,435 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Reviewer</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Image Evaluation Platform</title>
+    <style>
+        :root {
+            --card-width: 350px;
+            --card-height: var(--card-width);
+            --color-approve: #4CAF50;
+            --color-disapprove: #f44336;
+            --color-primary: #007bff;
+            --color-background: #f0f2f5;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--color-background);
+            overflow: hidden;
+        }
+
+        #app-container {
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #start-screen, #final-screen {
+            padding: 30px;
+            border: 1px solid #ccc;
+            border-radius: 15px;
+            background-color: #fff;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        #swipe-container {
+            position: relative;
+            width: var(--card-width);
+            height: var(--card-height);
+            margin: 0 auto;
+            flex-shrink: 0;
+        }
+
+        .hidden { display: none !important; }
+        
+        #folder-id-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        /* --- Image Card Styling --- */
+        .image-card {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            will-change: transform, opacity;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            cursor: grab;
+            touch-action: none;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            background-color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            /* NEW: Prevents text selection and native image drag during swipe */
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .image-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; 
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+            /* Prevents the image itself from being an event target that could interfere */
+            pointer-events: none;
+        }
+        
+        .image-card img.loaded { opacity: 1; }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            position: absolute;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .error-message {
+            color: white;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        /* --- Controls & Buttons --- */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            width: 100%;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+
+        #get-images-btn, #submit-review-btn { background-color: var(--color-primary); }
+        #disapprove-btn { background-color: var(--color-disapprove); }
+        #approve-btn { background-color: var(--color-approve); }
+        #undo-btn, #final-undo-btn { background-color: #6c757d; }
+        #submission-response a { color: var(--color-primary); text-decoration: none; font-weight: bold; }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <!-- Loading Screen -->
-        <div id="loading-screen" class="screen active">
-            <div class="loading-content">
-                <h1>Image Reviewer</h1>
-                <div class="input-group">
-                    <label for="folder-id-input">Google Drive Folder ID:</label>
-                    <input type="text" id="folder-id-input" placeholder="Enter folder ID..." class="folder-input">
-                    <small class="input-hint">You can find the folder ID in the Google Drive URL after /folders/</small>
-                </div>
-                <button id="get-images-btn" class="primary-btn">Get Images</button>
-            </div>
+
+    <div id="app-container">
+        <div id="start-screen">
+            <h1>Image Review</h1>
+            <p>Please enter the Google Drive Folder ID below to begin.</p>
+            <input type="text" id="folder-id-input" placeholder="Enter Google Drive Folder ID">
+            <button id="get-images-btn">Get Images</button>
+            <div id="initial-loading-indicator" class="hidden">Loading...</div>
         </div>
 
-        <!-- Main Review Interface -->
-        <div id="review-screen" class="screen">
-            <div class="header">
-                <div class="progress-bar">
-                    <div id="progress-fill" class="progress-fill"></div>
-                </div>
-                <div class="counter">
-                    <span id="current-image">1</span> / <span id="total-images">0</span>
-                </div>
-            </div>
+        <div id="swipe-container" class="hidden">
+            <div id="image-stack"></div>
+        </div>
 
-            <div class="card-container">
-                <div id="card-stack" class="card-stack">
-                    <!-- Cards will be dynamically generated here -->
-                </div>
-            </div>
-
+        <div id="controls-container" class="hidden">
             <div class="controls">
-                <button id="disapprove-btn" class="control-btn disapprove">
-                    <span class="icon">✕</span>
-                    <span class="label">Disapprove</span>
-                </button>
-                <button id="undo-btn" class="control-btn undo">
-                    <span class="icon">↶</span>
-                    <span class="label">Undo</span>
-                </button>
-                <button id="approve-btn" class="control-btn approve">
-                    <span class="icon">✓</span>
-                    <span class="label">Approve</span>
-                </button>
+                <button id="undo-btn">Undo (Backspace)</button>
             </div>
-
-            <div class="keyboard-hints">
-                <span>← Disapprove</span>
-                <span>→ Approve</span>
-                <span>Backspace Undo</span>
+             <div class="controls">
+                <button id="disapprove-btn">❌</button>
+                <button id="approve-btn">✔️</button>
             </div>
         </div>
 
-        <!-- Final Submission Screen -->
-        <div id="submission-screen" class="screen">
-            <div class="submission-content">
-                <h2>Review Complete!</h2>
-                <div class="summary">
-                    <div class="stat">
-                        <span class="number" id="approved-count">0</span>
-                        <span class="label">Approved</span>
-                    </div>
-                    <div class="stat">
-                        <span class="number" id="disapproved-count">0</span>
-                        <span class="label">Disapproved</span>
-                    </div>
-                </div>
-                <button id="submit-review-btn" class="primary-btn">Submit Review</button>
-                <button id="review-again-btn" class="secondary-btn">Review Again</button>
-            </div>
-        </div>
-
-        <!-- Error Screen -->
-        <div id="error-screen" class="screen">
-            <div class="error-content">
-                <h2>Error</h2>
-                <p id="error-message">Something went wrong. Please try again.</p>
-                <button id="retry-btn" class="primary-btn">Retry</button>
-            </div>
+        <div id="final-screen" class="hidden">
+            <h2>You've reviewed all images.</h2>
+            <button id="submit-review-btn">Submit Review</button>
+            <button id="final-undo-btn">Go Back</button>
+            <div id="submission-response" class="hidden"></div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- CONFIGURATION ---
+            const N8N_WEBHOOK_URL = 'https://n8n.jacopogomarasca.it/webhook/7c46aa4d-1163-49f2-85f3-0e4c3dcc74f0';
+            const PRELOAD_BUFFER = 2;
+
+            // --- STATE & UI REFERENCES ---
+            let imageAssets = [], reviewHistory = [], cardElements = [];
+            let resumeUrl = '', currentIndex = 0;
+            const ui = {
+                startScreen: document.getElementById('start-screen'),
+                swipeContainer: document.getElementById('swipe-container'),
+                controlsContainer: document.getElementById('controls-container'),
+                finalScreen: document.getElementById('final-screen'),
+                imageStack: document.getElementById('image-stack'),
+                initialLoadingIndicator: document.getElementById('initial-loading-indicator'),
+                submissionResponse: document.getElementById('submission-response'),
+                folderIdInput: document.getElementById('folder-id-input'),
+                getImagesBtn: document.getElementById('get-images-btn'),
+                undoBtn: document.getElementById('undo-btn'),
+                finalUndoBtn: document.getElementById('final-undo-btn'),
+                submitReviewBtn: document.getElementById('submit-review-btn'),
+                approveBtn: document.getElementById('approve-btn'),
+                disapproveBtn: document.getElementById('disapprove-btn'),
+            };
+            
+            // --- CORE LOGIC ---
+
+            const fetchInitialData = async () => {
+                const folderId = ui.folderIdInput.value.trim();
+                if (!folderId) {
+                    alert('Please enter a Google Drive Folder ID.');
+                    return;
+                }
+                ui.initialLoadingIndicator.classList.remove('hidden');
+                ui.getImagesBtn.disabled = true;
+                ui.folderIdInput.disabled = true;
+
+                try {
+                    const response = await fetch(N8N_WEBHOOK_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ folderId })
+                    });
+                    if (!response.ok) throw new Error(`Webhook responded with status: ${response.status}.`);
+                    const responseText = await response.text();
+                    if (!responseText) throw new Error("Webhook returned an empty response. Check if n8n workflow is active.");
+                    
+                    const data = JSON.parse(responseText);
+                    imageAssets = data.assets;
+                    resumeUrl = data.resumeUrl;
+
+                    if (!imageAssets || imageAssets.length === 0) {
+                        alert('No images found. Check the Folder ID.');
+                        ui.initialLoadingIndicator.classList.add('hidden');
+                        ui.getImagesBtn.disabled = false;
+                        ui.folderIdInput.disabled = false;
+                        return;
+                    }
+                    
+                    reviewHistory = imageAssets.map(asset => ({ ...asset, status: 'undecided' }));
+                    ui.startScreen.classList.add('hidden');
+                    ui.swipeContainer.classList.remove('hidden');
+                    ui.controlsContainer.classList.remove('hidden');
+                    preloadInitialImages();
+                } catch (error) {
+                    alert(`Error fetching images: ${error.message}`);
+                    ui.initialLoadingIndicator.classList.add('hidden');
+                    ui.getImagesBtn.disabled = false;
+                    ui.folderIdInput.disabled = false;
+                }
+            };
+            
+            const createAndLoadCard = (asset, index) => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                card.style.zIndex = imageAssets.length - index;
+                const spinner = document.createElement('div');
+                spinner.className = 'spinner';
+                card.appendChild(spinner);
+                card.style.backgroundImage = `url('https://drive.google.com/thumbnail?id=${asset.id}&sz=w400')`;
+                const hiResImage = new Image();
+                hiResImage.src = `https://drive.google.com/thumbnail?id=${asset.id}&sz=w1200`;
+                hiResImage.onload = () => {
+                    spinner.remove();
+                    const imgElement = document.createElement('img');
+                    imgElement.src = hiResImage.src;
+                    card.appendChild(imgElement);
+                    setTimeout(() => imgElement.classList.add('loaded'), 50);
+                };
+                hiResImage.onerror = () => {
+                    spinner.remove();
+                    card.innerHTML = `<div class="error-message">Could not load image</div>`;
+                };
+                ui.imageStack.appendChild(card);
+                cardElements[index] = card;
+            };
+
+            const preloadInitialImages = () => {
+                const initialLoadCount = Math.min(imageAssets.length, PRELOAD_BUFFER + 1);
+                for (let i = 0; i < initialLoadCount; i++) createAndLoadCard(imageAssets[i], i);
+                if (cardElements[0]) addSwipeListeners(cardElements[0]);
+            };
+            
+            const preloadNextImage = () => {
+                const nextImageIndex = currentIndex + PRELOAD_BUFFER;
+                if (nextImageIndex < imageAssets.length && !cardElements[nextImageIndex]) {
+                    createAndLoadCard(imageAssets[nextImageIndex], nextImageIndex);
+                }
+            };
+
+            const handleSwipeAction = (direction) => {
+                if (currentIndex >= imageAssets.length) return;
+                reviewHistory[currentIndex].status = direction === 'right' ? 'approved' : 'not approved';
+                const cardToRemove = cardElements[currentIndex];
+                if (cardToRemove) {
+                    const moveOutWidth = document.body.clientWidth * 1.5;
+                    cardToRemove.style.transform = `translateX(${direction === 'right' ? moveOutWidth : -moveOutWidth}px) rotate(${direction === 'right' ? 30 : -30}deg)`;
+                    cardToRemove.style.opacity = '0';
+                }
+                currentIndex++;
+                preloadNextImage();
+                if (currentIndex < imageAssets.length) {
+                    const nextCard = cardElements[currentIndex];
+                    if(nextCard) addSwipeListeners(nextCard);
+                } else {
+                    ui.swipeContainer.classList.add('hidden');
+                    ui.controlsContainer.classList.add('hidden');
+                    ui.finalScreen.classList.remove('hidden');
+                }
+            };
+
+            const undoLastAction = () => {
+                if (currentIndex === 0) return;
+                if(!ui.finalScreen.classList.contains('hidden')){
+                    ui.finalScreen.classList.add('hidden');
+                    ui.swipeContainer.classList.remove('hidden');
+                    ui.controlsContainer.classList.remove('hidden');
+                }
+                currentIndex--;
+                reviewHistory[currentIndex].status = 'undecided';
+                const cardToRestore = cardElements[currentIndex];
+                if (cardToRestore) {
+                    cardToRestore.style.transform = '';
+                    cardToRestore.style.opacity = '1';
+                    addSwipeListeners(cardToRestore);
+                }
+            };
+            
+            const submitFinalReview = async () => {
+                ui.submitReviewBtn.disabled = true;
+                ui.submissionResponse.textContent = 'Submitting...';
+                ui.submissionResponse.classList.remove('hidden');
+                const payload = reviewHistory
+                    .filter(item => item.status === 'not approved')
+                    .map(item => ({ fileId: item.id, 'approval status': 'not approved' }));
+                try {
+                    const response = await fetch(resumeUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`Submission failed with status: ${response.status}`);
+                    const resultText = await response.text();
+                    if (!resultText) {
+                         ui.submissionResponse.textContent = 'Submission successful, but the workflow returned an empty response.';
+                         return;
+                    }
+                    const result = JSON.parse(resultText);
+                    const finalDriveUrl = result.finalUrl;
+                    if (finalDriveUrl) {
+                        ui.submissionResponse.innerHTML = `Success! View final folder: <a href="${finalDriveUrl}" target="_blank">Click Here</a>`;
+                    } else {
+                        ui.submissionResponse.textContent = 'Submission successful, but no final URL was returned.';
+                    }
+                } catch (error) {
+                    ui.submissionResponse.textContent = `Error submitting review: ${error.message}`;
+                } finally {
+                    ui.submitReviewBtn.disabled = false;
+                }
+            };
+            
+            const addSwipeListeners = (card) => {
+                if (!card) return;
+                const dragState = {};
+
+                const dragStart = (event) => {
+                    // NEW: Prevent browser's default drag/selection behavior
+                    event.preventDefault(); 
+                    
+                    const point = event.type.startsWith('touch') ? event.touches[0] : event;
+                    dragState.startX = point.clientX;
+                    dragState.isDragging = true;
+                    card.style.transition = 'none';
+                    card.style.cursor = 'grabbing';
+                    window.addEventListener('mousemove', dragMove, { passive: true });
+                    window.addEventListener('mouseup', dragEnd);
+                    window.addEventListener('touchmove', dragMove, { passive: true });
+                    window.addEventListener('touchend', dragEnd);
+                };
+
+                const dragMove = (event) => {
+                    if (!dragState.isDragging) return;
+                    // NEW: Prevent scrolling on touch devices during a swipe
+                    event.preventDefault(); 
+                    
+                    const point = event.type.startsWith('touch') ? event.touches[0] : event;
+                    const diffX = point.clientX - dragState.startX;
+                    card.style.transform = `translateX(${diffX}px) rotate(${diffX * 0.1}deg)`;
+                };
+
+                const dragEnd = (event) => {
+                    if (!dragState.isDragging) return;
+                    window.removeEventListener('mousemove', dragMove);
+                    window.removeEventListener('mouseup', dragEnd);
+                    window.removeEventListener('touchmove', dragMove);
+                    window.removeEventListener('touchend', dragEnd);
+                    const point = event.type.startsWith('touch') ? event.changedTouches[0] : event;
+                    const diffX = point.clientX - dragState.startX;
+                    card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                    card.style.cursor = 'grab';
+                    if (Math.abs(diffX) > 100) {
+                        handleSwipeAction(diffX > 0 ? 'right' : 'left');
+                    } else {
+                        card.style.transform = '';
+                    }
+                    dragState.isDragging = false;
+                };
+
+                // Remove old listeners to prevent duplicates before adding new ones
+                card.removeEventListener('mousedown', dragStart);
+                card.removeEventListener('touchstart', dragStart);
+                // Add the primary event listener
+                card.addEventListener('mousedown', dragStart, { passive: false });
+                card.addEventListener('touchstart', dragStart, { passive: false });
+            };
+
+            // --- EVENT LISTENER SETUP ---
+            ui.getImagesBtn.addEventListener('click', fetchInitialData);
+            ui.approveBtn.addEventListener('click', () => handleSwipeAction('right'));
+            ui.disapproveBtn.addEventListener('click', () => handleSwipeAction('left'));
+            ui.undoBtn.addEventListener('click', undoLastAction);
+            ui.finalUndoBtn.addEventListener('click', undoLastAction);
+            ui.submitReviewBtn.addEventListener('click', submitFinalReview);
+
+            document.addEventListener('keydown', (e) => {
+                if (ui.swipeContainer.classList.contains('hidden')) return;
+                if (e.key === 'ArrowRight') handleSwipeAction('right');
+                if (e.key === 'ArrowLeft') handleSwipeAction('left');
+                if (e.key === 'Backspace') undoLastAction();
+            });
+        });
+    </script>
 </body>
 </html>
