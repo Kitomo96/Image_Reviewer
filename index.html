@@ -6,12 +6,11 @@
     <title>Image Evaluation Platform</title>
     <style>
         :root {
-            --card-width: 350px;
-            --card-height: var(--card-width);
             --color-approve: #4CAF50;
             --color-disapprove: #f44336;
             --color-primary: #007bff;
             --color-background: #f0f2f5;
+            --card-max-width: 400px; /* Set a max size for large screens */
         }
 
         body {
@@ -19,25 +18,48 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            /* Use dynamic viewport height for better mobile browser support */
+            height: 100vh; /* Fallback for older browsers */
+            height: 100dvh;
             margin: 0;
             background-color: var(--color-background);
             overflow: hidden;
+            font-size: 16px;
+            /* Prevent zoom on double tap for iOS */
+            touch-action: manipulation;
+            /* Prevent text selection on mobile */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
 
         #app-container {
             text-align: center;
             width: 100%;
-            max-width: 400px;
-            padding: 20px;
+            height: 100%;
+            padding: 10px;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
+            gap: 10px; /* Reduced spacing for mobile */
+            /* Safe area support for notched devices */
+            padding-top: max(10px, env(safe-area-inset-top));
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+            padding-left: max(10px, env(safe-area-inset-left));
+            padding-right: max(10px, env(safe-area-inset-right));
         }
 
         #start-screen, #final-screen {
-            padding: 30px;
-            border: 1px solid #ccc;
+            width: 90%;
+            max-width: 500px;
+            padding: 25px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
             border-radius: 15px;
             background-color: #fff;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -45,10 +67,17 @@
         
         #swipe-container {
             position: relative;
-            width: var(--card-width);
-            height: var(--card-height);
+            width: 90%; /* Be 90% of the parent's width */
+            max-width: var(--card-max-width); /* But don't get too big */
+            
+            /* THE KEY FIX: Enforce a 1x1 square aspect ratio automatically */
+            aspect-ratio: 1 / 1;
+            
             margin: 0 auto;
-            flex-shrink: 0;
+            flex-shrink: 1; /* Allow container to shrink if space is tight */
+            min-height: 0; /* Important for flexbox shrinking behavior */
+            /* Improve touch interaction */
+            touch-action: pan-x pan-y;
         }
 
         .hidden { display: none !important; }
@@ -56,14 +85,13 @@
         #folder-id-input {
             width: 100%;
             padding: 12px;
-            margin-bottom: 20px;
+            margin: 10px 0 20px;
             border: 1px solid #ccc;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 1em;
             box-sizing: border-box;
         }
 
-        /* --- Image Card Styling --- */
         .image-card {
             position: absolute;
             width: 100%;
@@ -73,7 +101,7 @@
             will-change: transform, opacity;
             transition: transform 0.3s ease, opacity 0.3s ease;
             cursor: grab;
-            touch-action: none;
+            touch-action: pan-x pan-y;
             overflow: hidden;
             background-size: cover;
             background-position: center;
@@ -81,10 +109,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-
-            /* NEW: Prevents text selection and native image drag during swipe */
             user-select: none;
             -webkit-user-drag: none;
+            /* Improve touch response */
+            -webkit-tap-highlight-color: transparent;
         }
 
         .image-card img {
@@ -93,10 +121,8 @@
             object-fit: cover; 
             opacity: 0;
             transition: opacity 0.4s ease-in-out;
-            /* Prevents the image itself from being an event target that could interfere */
             pointer-events: none;
         }
-        
         .image-card img.loaded { opacity: 1; }
 
         .spinner {
@@ -115,13 +141,17 @@
             background-color: rgba(0, 0, 0, 0.6);
             padding: 10px 15px;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 0.9em;
             text-align: center;
         }
+        
+        #controls-container {
+            width: 90%;
+            max-width: var(--card-max-width);
+        }
 
-        /* --- Controls & Buttons --- */
         .controls {
-            margin-top: 20px;
+            margin-top: 15px;
             display: flex;
             justify-content: center;
             gap: 15px;
@@ -129,22 +159,28 @@
         }
 
         button {
-            padding: 12px 24px;
+            /* THE KEY FIX: Use em for padding to scale with font size */
+            padding: 0.8em 1.5em;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 1em; /* Scales with root font size */
             font-weight: bold;
             color: white;
             transition: background-color 0.2s, transform 0.1s;
+            flex-grow: 1;
+            white-space: nowrap; /* Prevents text wrapping */
         }
         button:active { transform: scale(0.95); }
+
+        .approve-disapprove-controls button { flex-basis: 0; }
 
         #get-images-btn, #submit-review-btn { background-color: var(--color-primary); }
         #disapprove-btn { background-color: var(--color-disapprove); }
         #approve-btn { background-color: var(--color-approve); }
         #undo-btn, #final-undo-btn { background-color: #6c757d; }
         #submission-response a { color: var(--color-primary); text-decoration: none; font-weight: bold; }
+
     </style>
 </head>
 <body>
@@ -152,8 +188,8 @@
     <div id="app-container">
         <div id="start-screen">
             <h1>Image Review</h1>
-            <p>Please enter the Google Drive Folder ID below to begin.</p>
-            <input type="text" id="folder-id-input" placeholder="Enter Google Drive Folder ID">
+            <p>Enter the Google Drive Folder ID to begin.</p>
+            <input type="text" id="folder-id-input" placeholder="Google Drive Folder ID">
             <button id="get-images-btn">Get Images</button>
             <div id="initial-loading-indicator" class="hidden">Loading...</div>
         </div>
@@ -166,7 +202,7 @@
             <div class="controls">
                 <button id="undo-btn">Undo (Backspace)</button>
             </div>
-             <div class="controls">
+             <div class="controls approve-disapprove-controls">
                 <button id="disapprove-btn">❌</button>
                 <button id="approve-btn">✔️</button>
             </div>
@@ -206,8 +242,6 @@
                 disapproveBtn: document.getElementById('disapprove-btn'),
             };
             
-            // --- CORE LOGIC ---
-
             const fetchInitialData = async () => {
                 const folderId = ui.folderIdInput.value.trim();
                 if (!folderId) {
@@ -365,32 +399,25 @@
             const addSwipeListeners = (card) => {
                 if (!card) return;
                 const dragState = {};
-
                 const dragStart = (event) => {
-                    // NEW: Prevent browser's default drag/selection behavior
                     event.preventDefault(); 
-                    
                     const point = event.type.startsWith('touch') ? event.touches[0] : event;
                     dragState.startX = point.clientX;
                     dragState.isDragging = true;
                     card.style.transition = 'none';
                     card.style.cursor = 'grabbing';
-                    window.addEventListener('mousemove', dragMove, { passive: true });
+                    window.addEventListener('mousemove', dragMove);
                     window.addEventListener('mouseup', dragEnd);
-                    window.addEventListener('touchmove', dragMove, { passive: true });
+                    window.addEventListener('touchmove', dragMove, { passive: false });
                     window.addEventListener('touchend', dragEnd);
                 };
-
                 const dragMove = (event) => {
                     if (!dragState.isDragging) return;
-                    // NEW: Prevent scrolling on touch devices during a swipe
-                    event.preventDefault(); 
-                    
+                    event.preventDefault();
                     const point = event.type.startsWith('touch') ? event.touches[0] : event;
                     const diffX = point.clientX - dragState.startX;
                     card.style.transform = `translateX(${diffX}px) rotate(${diffX * 0.1}deg)`;
                 };
-
                 const dragEnd = (event) => {
                     if (!dragState.isDragging) return;
                     window.removeEventListener('mousemove', dragMove);
@@ -408,23 +435,18 @@
                     }
                     dragState.isDragging = false;
                 };
-
-                // Remove old listeners to prevent duplicates before adding new ones
                 card.removeEventListener('mousedown', dragStart);
                 card.removeEventListener('touchstart', dragStart);
-                // Add the primary event listener
                 card.addEventListener('mousedown', dragStart, { passive: false });
                 card.addEventListener('touchstart', dragStart, { passive: false });
             };
 
-            // --- EVENT LISTENER SETUP ---
             ui.getImagesBtn.addEventListener('click', fetchInitialData);
             ui.approveBtn.addEventListener('click', () => handleSwipeAction('right'));
             ui.disapproveBtn.addEventListener('click', () => handleSwipeAction('left'));
             ui.undoBtn.addEventListener('click', undoLastAction);
             ui.finalUndoBtn.addEventListener('click', undoLastAction);
             ui.submitReviewBtn.addEventListener('click', submitFinalReview);
-
             document.addEventListener('keydown', (e) => {
                 if (ui.swipeContainer.classList.contains('hidden')) return;
                 if (e.key === 'ArrowRight') handleSwipeAction('right');
