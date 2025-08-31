@@ -7,12 +7,13 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="app">
-        <!-- Loading Screen -->
-        <div id="loading-screen" class="screen active">
-            <div class="loading-content">
-                <h1>Image Reviewer</h1>
-                <div class="input-group">
+    <div class="container">
+        <!-- Initial Screen -->
+        <div id="initial-screen" class="screen active">
+            <div class="initial-content">
+                <h1>Image Evaluation Platform</h1>
+                <p>Extract and review images from Google Drive folder</p>
+                <div id="folder-input-section" class="folder-input">
                     <label for="folder-id-input">Google Drive Folder ID:</label>
                     <input type="text" id="folder-id-input" placeholder="Enter folder ID..." class="folder-input">
                     <small class="input-hint">You can find the folder ID in the Google Drive URL after /folders/</small>
@@ -23,40 +24,28 @@
 
         <!-- Main Review Interface -->
         <div id="review-screen" class="screen">
-            <div class="header">
-                <div class="progress-bar">
-                    <div id="progress-fill" class="progress-fill"></div>
+            <div class="review-header">
+                <div class="progress-info">
+                    <span id="current-image">1</span> of <span id="total-images">0</span>
                 </div>
-                <div class="counter">
-                    <span id="current-image">1</span> / <span id="total-images">0</span>
-                </div>
+                <button id="undo-btn" class="secondary-btn" disabled>↶ Undo</button>
             </div>
 
-            <div class="card-container">
-                <div id="card-stack" class="card-stack">
-                    <!-- Cards will be dynamically generated here -->
-                </div>
+            <div class="card-container" id="card-container">
+                <!-- Image cards will be dynamically inserted here -->
             </div>
 
-            <div class="controls">
-                <button id="disapprove-btn" class="control-btn disapprove">
-                    <span class="icon">✕</span>
-                    <span class="label">Disapprove</span>
+            <div class="action-buttons">
+                <button id="disapprove-btn" class="action-btn disapprove-btn">
+                    ❌ Disapprove
                 </button>
-                <button id="undo-btn" class="control-btn undo">
-                    <span class="icon">↶</span>
-                    <span class="label">Undo</span>
-                </button>
-                <button id="approve-btn" class="control-btn approve">
-                    <span class="icon">✓</span>
-                    <span class="label">Approve</span>
+                <button id="approve-btn" class="action-btn approve-btn">
+                    ✔️ Approve
                 </button>
             </div>
 
             <div class="keyboard-hints">
-                <span>← Disapprove</span>
-                <span>→ Approve</span>
-                <span>Backspace Undo</span>
+                <p>← Left Arrow: Disapprove | Right Arrow: Approve → | Backspace: Undo</p>
             </div>
         </div>
 
