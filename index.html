@@ -227,9 +227,8 @@
             cursor: grab;
             touch-action: pan-x pan-y;
             overflow: hidden;
-            background-size: cover;
-            background-position: center;
-            background-color: #e0e0e0;
+            /* Remove background image - only show the <img> element */
+            background-color: #f8f9fa;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -247,17 +246,22 @@
             }
             
             .image-card img {
-                object-fit: contain; /* Show full image on mobile */
+                padding: 4px; /* Smaller padding on mobile */
+                border-radius: 4px;
             }
         }
 
         .image-card img {
             width: 100%;
             height: 100%;
-            object-fit: cover; 
+            object-fit: contain; /* Show full image */
             opacity: 0;
             transition: opacity 0.4s ease-in-out;
             pointer-events: none;
+            border-radius: 8px; /* Slight rounding */
+            /* Add small padding effect using box model */
+            padding: 6px;
+            box-sizing: border-box;
         }
         .image-card img.loaded { opacity: 1; }
 
@@ -440,7 +444,7 @@
                 const spinner = document.createElement('div');
                 spinner.className = 'spinner';
                 card.appendChild(spinner);
-                card.style.backgroundImage = `url('https://drive.google.com/thumbnail?id=${asset.id}&sz=w400')`;
+                // Remove background image - only use the <img> element
                 const hiResImage = new Image();
                 hiResImage.src = `https://drive.google.com/thumbnail?id=${asset.id}&sz=w1200`;
                 hiResImage.onload = () => {
