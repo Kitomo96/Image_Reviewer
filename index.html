@@ -452,7 +452,7 @@
             font-size: 1.1em; /* Slightly larger for mobile */
             font-weight: bold;
             color: white;
-            transition: background-color 0.2s, transform 0.1s;
+            transition: all 0.15s ease;
             flex-grow: 1;
             white-space: nowrap;
             /* Minimum touch target size for accessibility */
@@ -461,6 +461,11 @@
             /* Better touch interaction */
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
+            /* Prevent text selection on mobile */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
         button:active { transform: scale(0.95); }
 
@@ -632,7 +637,10 @@
                     const imgElement = document.createElement('img');
                     imgElement.src = hiResImage.src;
                     card.appendChild(imgElement);
-                    setTimeout(() => imgElement.classList.add('loaded'), 50);
+                    // Use requestAnimationFrame for smoother loading
+                    requestAnimationFrame(() => {
+                        imgElement.classList.add('loaded');
+                    });
                 };
                 hiResImage.onerror = () => {
                     spinner.remove();
@@ -655,7 +663,16 @@
                 }
             };
 
-            const handleSwipeAction = (direction) => {
+            // Debounce function to prevent rapid multiple actions
+            const debounce = (func, delay) => {
+                let timeoutId;
+                return (...args) => {
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => func.apply(this, args), delay);
+                };
+            };
+
+            const handleSwipeAction = debounce((direction) => {
                 if (currentIndex >= imageAssets.length) return;
                 reviewHistory[currentIndex].status = direction === 'right' ? 'approved' : 'not approved';
                 const cardToRemove = cardElements[currentIndex];
@@ -675,9 +692,9 @@
                     ui.controlsContainer.classList.add('hidden');
                     ui.finalScreen.classList.remove('hidden');
                 }
-            };
+            }, 300);  // 300ms debounce to prevent rapid actions
 
-            const undoLastAction = () => {
+            const undoLastAction = debounce(() => {
                 if (currentIndex === 0) return;
                 if(!ui.finalScreen.classList.contains('hidden')){
                     ui.finalScreen.classList.add('hidden');
@@ -693,7 +710,7 @@
                     cardToRestore.style.opacity = '1';
                     addSwipeListeners(cardToRestore);
                 }
-            };
+            }, 300);
             
             const submitFinalReview = async () => {
                 ui.submitReviewBtn.disabled = true;
@@ -767,10 +784,13 @@
                         ui.submissionResponse.innerHTML = `Submission sent successfully! View folder: <a href="${driveUrl}" target="_blank">Click Here</a>`;
                     }
                     
-                    setTimeout(() => {
+                    // Clean up immediately instead of waiting
+                    try {
                         document.body.removeChild(iframe);
                         document.body.removeChild(form);
-                    }, 1000);
+                    } catch (e) {
+                        console.log('Cleanup error:', e);
+                    }
                     
                     ui.submitReviewBtn.disabled = false;
                 };
@@ -781,8 +801,17 @@
             
             const addSwipeListeners = (card) => {
                 if (!card) return;
-                const dragState = {};
+                
+                // Clear any existing listeners first to prevent duplicates
+                card.removeEventListener('mousedown', card._dragStartHandler);
+                card.removeEventListener('touchstart', card._dragStartHandler);
+                
+                const dragState = { isDragging: false };
+                
                 const dragStart = (event) => {
+                    // Prevent multiple simultaneous drags
+                    if (dragState.isDragging) return;
+                    
                     if (!event.type.startsWith('touch')) {
                         event.preventDefault();
                     }
@@ -792,11 +821,14 @@
                     dragState.isDragging = true;
                     card.style.transition = 'none';
                     card.style.cursor = 'grabbing';
+                    
+                    // Use named functions for proper removal
                     window.addEventListener('mousemove', dragMove);
                     window.addEventListener('mouseup', dragEnd);
                     window.addEventListener('touchmove', dragMove, { passive: false });
                     window.addEventListener('touchend', dragEnd);
                 };
+                
                 const dragMove = (event) => {
                     if (!dragState.isDragging) return;
                     const point = event.type.startsWith('touch') ? event.touches[0] : event;
@@ -824,12 +856,16 @@
                         }
                     }
                 };
+                
                 const dragEnd = (event) => {
                     if (!dragState.isDragging) return;
+                    
+                    // Clean up all event listeners
                     window.removeEventListener('mousemove', dragMove);
                     window.removeEventListener('mouseup', dragEnd);
                     window.removeEventListener('touchmove', dragMove);
                     window.removeEventListener('touchend', dragEnd);
+                    
                     const point = event.type.startsWith('touch') ? event.changedTouches[0] : event;
                     const diffX = point.clientX - dragState.startX;
                     card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
@@ -847,8 +883,12 @@
                     }
                     dragState.isDragging = false;
                 };
-                card.removeEventListener('mousedown', dragStart);
-                card.removeEventListener('touchstart', dragStart);
+                
+                // Store handlers for proper cleanup
+                card._dragStartHandler = dragStart;
+                card._dragMoveHandler = dragMove;
+                card._dragEndHandler = dragEnd;
+                
                 card.addEventListener('mousedown', dragStart, { passive: false });
                 card.addEventListener('touchstart', dragStart, { passive: false });
             };
@@ -862,10 +902,47 @@
 
             // --- Attach Event Listeners ---
             ui.getImagesBtn.addEventListener('click', fetchInitialData);
-            ui.approveBtn.addEventListener('click', () => handleSwipeAction('right'));
-            ui.disapproveBtn.addEventListener('click', () => handleSwipeAction('left'));
-            ui.undoBtn.addEventListener('click', undoLastAction);
-            ui.finalUndoBtn.addEventListener('click', undoLastAction);
+            
+            // Mobile-friendly button handlers with touch prevention
+            const createButtonHandler = (action, button = null) => {
+                let isProcessing = false;
+                return (e) => {
+                    if (e.type === 'touchstart') e.preventDefault();
+                    if (isProcessing) return;
+                    
+                    isProcessing = true;
+                    
+                    // Add visual feedback
+                    if (button) {
+                        button.style.opacity = '0.7';
+                        button.style.transform = 'scale(0.95)';
+                    }
+                    
+                    action();
+                    
+                    // Re-enable after action completes
+                    setTimeout(() => {
+                        isProcessing = false;
+                        if (button) {
+                            button.style.opacity = '';
+                            button.style.transform = '';
+                        }
+                    }, 300);
+                };
+            };
+            
+            ui.approveBtn.addEventListener('click', createButtonHandler(() => handleSwipeAction('right'), ui.approveBtn));
+            ui.approveBtn.addEventListener('touchstart', createButtonHandler(() => handleSwipeAction('right'), ui.approveBtn), { passive: false });
+            
+            ui.disapproveBtn.addEventListener('click', createButtonHandler(() => handleSwipeAction('left'), ui.disapproveBtn));
+            ui.disapproveBtn.addEventListener('touchstart', createButtonHandler(() => handleSwipeAction('left'), ui.disapproveBtn), { passive: false });
+            
+            ui.undoBtn.addEventListener('click', createButtonHandler(undoLastAction, ui.undoBtn));
+            ui.undoBtn.addEventListener('touchstart', createButtonHandler(undoLastAction, ui.undoBtn), { passive: false });
+            
+            ui.finalUndoBtn.addEventListener('click', createButtonHandler(undoLastAction, ui.finalUndoBtn));
+            ui.finalUndoBtn.addEventListener('touchstart', createButtonHandler(undoLastAction, ui.finalUndoBtn), { passive: false });
+            
             ui.submitReviewBtn.addEventListener('click', submitFinalReview);
             document.addEventListener('keydown', (e) => {
                 if (!ui.swipeContainer.classList.contains('hidden')) {
