@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -548,6 +547,18 @@
                 disapproveBtn: document.getElementById('disapprove-btn'),
                 progressCounter: document.getElementById('progress-counter'),
             };
+
+            // --- NEW --- Function to check for URL parameters
+            const checkForUrlParameters = () => {
+                const params = new URLSearchParams(window.location.search);
+                const folderId = params.get('folderId');
+                if (folderId) {
+                    console.log('Folder ID found in URL:', folderId);
+                    ui.folderIdInput.value = folderId;
+                    // Automatically fetch images if the folderId is present
+                    fetchInitialData();
+                }
+            };
             
             const fetchInitialData = async () => {
                 const folderId = ui.folderIdInput.value.trim();
@@ -600,7 +611,6 @@
                 card.className = 'image-card';
                 card.style.zIndex = imageAssets.length - index;
                 
-                // Add swipe indicators
                 const approveIndicator = document.createElement('div');
                 approveIndicator.className = 'swipe-indicator approve';
                 approveIndicator.textContent = 'APPROVED';
@@ -614,7 +624,7 @@
                 const spinner = document.createElement('div');
                 spinner.className = 'spinner';
                 card.appendChild(spinner);
-                // Remove background image - only use the <img> element
+                
                 const hiResImage = new Image();
                 hiResImage.src = `https://drive.google.com/thumbnail?id=${asset.id}&sz=w1200`;
                 hiResImage.onload = () => {
@@ -690,27 +700,13 @@
                 ui.submissionResponse.textContent = 'Submitting...';
                 ui.submissionResponse.classList.remove('hidden');
                 
-                // Debug logging
                 console.log('Resume URL:', resumeUrl);
                 console.log('Review History:', reviewHistory);
                 
                 const rejectedFiles = reviewHistory.filter(item => item.status === 'not approved');
                 const rejectedFileIds = rejectedFiles.map(item => item.id);
                 
-                // Try multiple payload formats
-                const payloadOptions = [
-                    rejectedFileIds, // Simple array
-                    { rejectedFileIds: rejectedFileIds }, // Object with array
-                    { fileIds: rejectedFileIds }, // Alternative key name
-                    { data: rejectedFileIds }, // Generic data wrapper
-                    { rejectedFiles: rejectedFiles } // Full objects
-                ];
-                
-                console.log('Rejected files:', rejectedFiles);
                 console.log('Rejected file IDs:', rejectedFileIds);
-                console.log('Resume URL type:', typeof resumeUrl);
-                console.log('Resume URL value:', resumeUrl);
-                console.log('Resume URL length:', resumeUrl ? resumeUrl.length : 'undefined');
                 
                 if (!resumeUrl || resumeUrl.trim() === '') {
                     ui.submissionResponse.textContent = 'Error: No resume URL available. Please restart the process.';
@@ -718,7 +714,6 @@
                     return;
                 }
                 
-                // Validate URL format
                 try {
                     new URL(resumeUrl);
                 } catch (urlError) {
@@ -728,80 +723,50 @@
                     return;
                 }
                 
-                // Since CORS is blocking fetch, use form submission with hidden iframe
                 console.log('Using form submission to bypass CORS...');
                 
-                // Create a hidden iframe to handle the response
                 const iframe = document.createElement('iframe');
                 iframe.name = 'submission-frame';
                 iframe.style.display = 'none';
                 document.body.appendChild(iframe);
                 
-                // Create a temporary form
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = resumeUrl;
-                form.target = 'submission-frame'; // Submit to hidden iframe
+                form.target = 'submission-frame';
                 form.style.display = 'none';
                 
-                // Add the rejected file IDs as form data
-                rejectedFileIds.forEach((fileId, index) => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = `rejectedFileId_${index}`;
-                    input.value = fileId;
-                    form.appendChild(input);
-                });
-                
-                // Also try sending as JSON in a hidden field
                 const jsonInput = document.createElement('input');
                 jsonInput.type = 'hidden';
                 jsonInput.name = 'rejectedFileIds';
                 jsonInput.value = JSON.stringify(rejectedFileIds);
                 form.appendChild(jsonInput);
                 
-                // Handle iframe load event to check for success
                 iframe.onload = () => {
                     try {
-                        // Try to access iframe content to check for success
                         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                         const responseText = iframeDoc.body.textContent || iframeDoc.body.innerText;
                         console.log('Form submission response:', responseText);
                         
-                        if (responseText.includes('finalUrl') || responseText.includes('success')) {
-                            // Try to extract final URL from response
-                            try {
-                                const result = JSON.parse(responseText);
-                                if (result.finalUrl) {
-                                    ui.submissionResponse.innerHTML = `Success! View final folder: <a href="${result.finalUrl}" target="_blank">Click Here</a>`;
-                                } else {
-                                    // Fallback: create Google Drive link from original folder ID
-                                    const originalFolderId = ui.folderIdInput.value.trim();
-                                    const driveUrl = `https://drive.google.com/drive/u/1/folders/${originalFolderId}`;
-                                    ui.submissionResponse.innerHTML = `Success! View folder: <a href="${driveUrl}" target="_blank">Click Here</a>`;
-                                }
-                            } catch {
-                                // Fallback: create Google Drive link from original folder ID
-                                const originalFolderId = ui.folderIdInput.value.trim();
-                                const driveUrl = `https://drive.google.com/drive/u/1/folders/${originalFolderId}`;
-                                ui.submissionResponse.innerHTML = `Success! View folder: <a href="${driveUrl}" target="_blank">Click Here</a>`;
+                        try {
+                            const result = JSON.parse(responseText);
+                            if (result.finalUrl) {
+                                ui.submissionResponse.innerHTML = `Success! View final folder: <a href="${result.finalUrl}" target="_blank">Click Here</a>`;
+                            } else {
+                                throw new Error("No finalUrl in response");
                             }
-                        } else {
-                            // Fallback: create Google Drive link from original folder ID
+                        } catch {
                             const originalFolderId = ui.folderIdInput.value.trim();
                             const driveUrl = `https://drive.google.com/drive/u/1/folders/${originalFolderId}`;
-                            ui.submissionResponse.innerHTML = `Submission completed. View folder: <a href="${driveUrl}" target="_blank">Click Here</a>`;
+                            ui.submissionResponse.innerHTML = `Success! View folder: <a href="${driveUrl}" target="_blank">Click Here</a>`;
                         }
                     } catch (e) {
-                        // Can't access iframe content due to CORS, but submission probably worked
                         console.log('Cannot access iframe content (CORS), but submission likely successful');
-                        // Fallback: create Google Drive link from original folder ID
                         const originalFolderId = ui.folderIdInput.value.trim();
                         const driveUrl = `https://drive.google.com/drive/u/1/folders/${originalFolderId}`;
                         ui.submissionResponse.innerHTML = `Submission sent successfully! View folder: <a href="${driveUrl}" target="_blank">Click Here</a>`;
                     }
                     
-                    // Clean up
                     setTimeout(() => {
                         document.body.removeChild(iframe);
                         document.body.removeChild(form);
@@ -810,7 +775,6 @@
                     ui.submitReviewBtn.disabled = false;
                 };
                 
-                // Add to document and submit
                 document.body.appendChild(form);
                 form.submit();
             };
@@ -819,7 +783,6 @@
                 if (!card) return;
                 const dragState = {};
                 const dragStart = (event) => {
-                    // Don't prevent default for touch events to maintain proper mobile behavior
                     if (!event.type.startsWith('touch')) {
                         event.preventDefault();
                     }
@@ -840,12 +803,10 @@
                     const diffX = point.clientX - dragState.startX;
                     const diffY = point.clientY - dragState.startY;
                     
-                    // Only prevent default if this is primarily a horizontal swipe
                     if (Math.abs(diffX) > Math.abs(diffY)) {
                         event.preventDefault();
                         card.style.transform = `translateX(${diffX}px) rotate(${diffX * 0.1}deg)`;
                         
-                        // Show appropriate indicator based on swipe direction
                         const approveIndicator = card.querySelector('.swipe-indicator.approve');
                         const disapproveIndicator = card.querySelector('.swipe-indicator.disapprove');
                         
@@ -874,7 +835,6 @@
                     card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
                     card.style.cursor = 'grab';
                     
-                    // Hide indicators
                     const approveIndicator = card.querySelector('.swipe-indicator.approve');
                     const disapproveIndicator = card.querySelector('.swipe-indicator.disapprove');
                     approveIndicator.classList.remove('show');
@@ -900,6 +860,7 @@
                 }
             };
 
+            // --- Attach Event Listeners ---
             ui.getImagesBtn.addEventListener('click', fetchInitialData);
             ui.approveBtn.addEventListener('click', () => handleSwipeAction('right'));
             ui.disapproveBtn.addEventListener('click', () => handleSwipeAction('left'));
@@ -907,11 +868,15 @@
             ui.finalUndoBtn.addEventListener('click', undoLastAction);
             ui.submitReviewBtn.addEventListener('click', submitFinalReview);
             document.addEventListener('keydown', (e) => {
-                if (ui.swipeContainer.classList.contains('hidden')) return;
-                if (e.key === 'ArrowRight') handleSwipeAction('right');
-                if (e.key === 'ArrowLeft') handleSwipeAction('left');
-                if (e.key === 'Backspace') undoLastAction();
+                if (!ui.swipeContainer.classList.contains('hidden')) {
+                     if (e.key === 'ArrowRight') handleSwipeAction('right');
+                     if (e.key === 'ArrowLeft') handleSwipeAction('left');
+                     if (e.key === 'Backspace') undoLastAction();
+                }
             });
+
+            // --- NEW --- Call the function on page load
+            checkForUrlParameters();
         });
     </script>
 </body>
